@@ -6,9 +6,9 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
-	"math"
+	//"math"
 	"net/http"
-	"runtime"
+	//"runtime"
 	"time"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
@@ -17,7 +17,7 @@ import (
 	"github.com/peragwin/vuzicgo/audio/fft"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
 	"github.com/peragwin/vuzicgo/gfx/skgrid"
-	"github.com/peragwin/vuzicgo/gfx/warpgrid"
+	//"github.com/peragwin/vuzicgo/gfx/warpgrid"
 )
 
 const (
@@ -51,7 +51,7 @@ var (
 
 	httpDir = flag.String("http-dir", "./client/build", "where to host static client gui files")
 )
-
+/*
 func initGfx(done chan struct{}) *warpgrid.Grid {
 	runtime.LockOSThread()
 
@@ -70,7 +70,7 @@ func initGfx(done chan struct{}) *warpgrid.Grid {
 	}
 	return g
 }
-
+*/
 func main() {
 	flag.Parse()
 
@@ -83,14 +83,14 @@ func main() {
 	defer close(render)
 	done := make(chan struct{})
 	defer close(done)
-
+/*
 	var g *warpgrid.Grid
 	if !*headless {
 		// The graphics have to be the first thing we initialize on macOS; I'm guessing it's
 		// because of the syscall that binds it to the main thread.
 		g = initGfx(done)
 	}
-
+*/
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -135,8 +135,8 @@ func main() {
 	}()
 
 	rndr := newRenderer(*columns, *mirror, fs.DefaultParameters, f)
-	frames := rndr.Render(done, render)
-
+	//frames := rndr.Render(done, render)
+/*
 	if !*headless {
 		g.SetRenderFunc(func(g *warpgrid.Grid) {
 			render <- struct{}{}
@@ -168,7 +168,7 @@ func main() {
 			}
 		})
 	}
-
+*/
 	// If a remote is passed try to stream to it. If we lose the connection, try again
 	// after 10 seconds to reestablish a connection.
 	if *remote != "" {
@@ -267,9 +267,9 @@ func main() {
 		http.ListenAndServe(":8080", nil)
 	}()
 
-	if !*headless {
-		g.Start()
-	} else {
+	//if !*headless {
+	//	g.Start()
+	//} else {
 		<-done
-	}
+	//}
 }
