@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	sampleFrame = 256
+	sampleFrame = 128
 	sampleRate  = 44100
 
 	textureMode = gl.LINEAR
@@ -188,7 +188,7 @@ func main() {
 						panic(err)
 					}
 					done := make(chan struct{})
-					go rndr.gridRender(grid, *frameRate, done)
+					go rndr.gridRender2(grid, *frameRate, done)
 					<-done
 				}
 			}
@@ -215,8 +215,8 @@ func main() {
 			if pi, err := skgrid.NewPiLocal(8e6); err != nil {
 				log.Println("[ERROR] could not initialize raspberry pi:", err)
 			} else {
-				grid, err := skgrid.NewGrid(16, 60, "skgrid", map[string]interface{}{
-					"transpose": true,
+				grid, err := skgrid.NewGrid(60, 16, "skgrid", map[string]interface{}{
+					//"transpose": true,
 					"driver":    pi,
 				})
 				if err != nil {

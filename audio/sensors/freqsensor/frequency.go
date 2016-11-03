@@ -32,19 +32,19 @@ var (
 		Offset:           0,
 		Period:           24,
 		Gain:             2,
-		Preemphasis:      16,
+		Preemphasis:      2,
 		DifferentialGain: 5e-3,
 		Sync:             5e-3,
 		Mode:             AnimateMode,
 		WarpOffset:       0.5,
-		WarpScale:        1.0,
-		Scale:            1.0,
+		WarpScale:        1.55,
+		Scale:            0.45,
 		SaturationOffset: -2.0,
 		ValueOffset1:     1.0,
 		ValueOffset2:     -4.0,
 		Alpha:            0.25,
 		AlphaOffset:      -4.0,
-		ScaleOffset:      0.5,
+		ScaleOffset:      0.71,
 	}
 )
 

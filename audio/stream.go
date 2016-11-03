@@ -47,8 +47,10 @@ func NewSource(ctx context.Context, cfg *Config) (<-chan []float32, <-chan error
 				errc <- err
 				return
 			}
-			for _, dev := range devices {
-				fmt.Println("Device:", dev)
+			if cfg.PrintDevices {
+				for _, dev := range devices {
+					fmt.Println("Device:", dev)
+				}
 				return
 			}
 			params := portaudio.StreamDeviceParameters{

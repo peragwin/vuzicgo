@@ -76,6 +76,9 @@ func newSkGrid(width, height int, opts map[string]interface{}) (Grid, error) {
 }
 
 func (s *skGrid) Rect() image.Rectangle {
+	if s.transpose {
+		return image.Rect(0, 0, s.Height, s.Width)
+	}
 	return image.Rect(0, 0, s.Width, s.Height)
 }
 
@@ -101,14 +104,20 @@ func (s *skGrid) Pixel(x, y int, col color.RGBA) {
 	col.A = uint8(float64(col.A)/8 + 0.5)
 
 	// skgrid is wired like a snake so we have to flip every other column
-	if x%2 == 1 {
-		y = s.Height - 1 - y
-	}
+	//if s.transpose {
+		if x%2 == 1 {
+			y = s.Height - 1 - y
+		}
+	//} else {
+	//	if y%2 == 1 {
+	//		x = s.Height - 1 - x
+	//	}
+	//}
 	var idx int
 	if s.transpose {
 		idx = s.Height*x + y
 	} else {
-		idx = s.Width*y + x
+		idx = s.Width*y + x // <- glitch. correct is s.Height*y + x
 	}
 	s.SetBuffer(idx, col)
 }
