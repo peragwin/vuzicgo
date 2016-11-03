@@ -103,6 +103,11 @@ func (r *renderer) render() {
 	for i := 0; i < hl; i++ {
 		col := r.renderColumn(i)
 		for j, c := range col {
+			v := float64(i)/float64(hl)
+			v = 1 - v*v
+			c.R = uint8(float64(c.R) * v)
+			c.G = uint8(float64(c.G) * v)
+			c.B = uint8(float64(c.B) * v)
 			if r.mirror {
 				r.display.SetRGBA(hl+i, r.rows+j, c)
 				r.display.SetRGBA(hl+i, r.rows-1-j, c)

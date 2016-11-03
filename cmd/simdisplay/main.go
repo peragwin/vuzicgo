@@ -11,7 +11,7 @@ import (
 	//"runtime"
 	"time"
 
-	"github.com/go-gl/gl/v4.1-core/gl"
+	//"github.com/go-gl/gl/v4.1-core/gl"
 
 	"github.com/peragwin/vuzicgo/audio"
 	"github.com/peragwin/vuzicgo/audio/fft"
@@ -21,10 +21,10 @@ import (
 )
 
 const (
-	sampleFrame = 128
+	sampleFrame = 256
 	sampleRate  = 44100
 
-	textureMode = gl.LINEAR
+	//textureMode = gl.LINEAR
 )
 
 var (
@@ -128,12 +128,13 @@ func main() {
 	})
 	fsOut := f.Process(done, specOut)
 	// this output isn't needed here so throw it away
+	// XXX added fsOut to render input
 	go func() {
 		for {
 			<-fsOut
 		}
 	}()
-
+	// XXX added fsOut arg
 	rndr := newRenderer(*columns, *mirror, fs.DefaultParameters, f)
 	//frames := rndr.Render(done, render)
 /*
