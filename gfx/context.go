@@ -19,8 +19,6 @@ type Context struct {
 
 // NewContext creates a new opengl context
 func NewContext(windowConfig *WindowConfig, shaderConfigs []*ShaderConfig) (*Context, error) {
-	runtime.LockOSThread()
-
 	window, err := NewWindow(windowConfig)
 	if err != nil {
 		return nil, err
@@ -62,11 +60,17 @@ func NewContext(windowConfig *WindowConfig, shaderConfigs []*ShaderConfig) (*Con
 // EventLoop clears the current framebuffer and executes render in a loop until
 // the underlying glfw window tells it to stop. Calls glfw.Terminate when finished.
 func (c *Context) EventLoop(render func(*Context)) {
+
+	// OpenGL requires that rendering functions be called from the main thread
+	runtime.LockOSThread()
+
 	for !c.Window.GlfwWindow.ShouldClose() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.UseProgram(c.Program.ProgramID)
 
 		render(c)
+
+		c.Draw()
 
 		glfw.PollEvents()
 		c.Window.GlfwWindow.SwapBuffers()

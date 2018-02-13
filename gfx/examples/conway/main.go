@@ -5,87 +5,54 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/go-gl/gl/v4.1-core/gl"
+	ml "github.com/go-gl/mathgl/mgl32"
 	"github.com/peragwin/vuzicgo/gfx"
+	"github.com/peragwin/vuzicgo/gfx/grid"
 )
 
 const (
 	width  = 800
 	height = 600
 
-	rows    = 200
-	columns = 200
+	rows    = 100
+	columns = 100
 )
 
 var (
-	square = []float32{
-		-0.5, 0.5, 0,
-		-0.5, -0.5, 0,
-		0.5, -0.5, 0,
-
-		-0.5, 0.5, 0,
-		0.5, 0.5, 0,
-		0.5, -0.5, 0,
+	ageColors = map[int]ml.Vec4{
+		1: ml.Vec4{0.90, 0.00, 0.47, 1.0},
+		2: ml.Vec4{0.87, 0.31, 0.00, 1.0},
+		3: ml.Vec4{0.62, 0.84, 0.00, 1.0},
+		4: ml.Vec4{0.00, 0.81, 0.11, 1.0},
+		5: ml.Vec4{0.00, 0.76, 0.78, 1.0},
+		6: ml.Vec4{0.00, 0.06, 0.75, 1.0},
 	}
-	ageColors = map[int][]float32{
-		1: {0.90, 0.00, 0.47, 1.0},
-		2: {0.87, 0.31, 0.00, 1.0},
-		3: {0.62, 0.84, 0.00, 1.0},
-		4: {0.00, 0.81, 0.11, 1.0},
-		5: {0.00, 0.76, 0.78, 1.0},
-		6: {0.00, 0.06, 0.75, 1.0},
-	}
-)
-
-const (
-	vertexShaderSource = `
-	#version 410
-	in vec3 vp;
-	void main() {
-		gl_Position = vec4(vp, 1.0);
-	}`
-
-	fragmenShaderSource = `
-	#version 410
-	uniform vec4 uColor = vec4(1, 1, 1, 1);
-	out vec4 frag_color;
-	void main() {
-		frag_color = uColor;
-	}`
 )
 
 func main() {
-	ctx, err := gfx.NewContext(&gfx.WindowConfig{
+	cells := makeCells()
+
+	ctx, err := grid.NewGrid(&grid.Config{
 		Width: 800, Height: 600, Title: "Game of Life",
-	}, []*gfx.ShaderConfig{
-		&gfx.ShaderConfig{
-			Typ:    gfx.VertexShaderType,
-			Source: vertexShaderSource,
-		},
-		&gfx.ShaderConfig{
-			Typ:          gfx.FragmentShaderType,
-			Source:       fragmenShaderSource,
-			UniformNames: []string{"uColor"},
+		Columns: columns, Rows: rows,
+		Render: func(ctx *grid.Grid) {
+			for i := range cells {
+				for j := range cells[i] {
+					cells[i][j].checkState(cells)
+				}
+			}
+			for i := range cells {
+				for j := range cells[i] {
+					ctx.SetColor(i, j, cells[i][j].getColor())
+				}
+			}
 		},
 	})
 	if err != nil {
-		log.Println(err)
-		return
+		log.Fatal(err)
 	}
 
-	defer ctx.Terminate()
-
-	cells := makeCells(ctx)
-
-	ctx.EventLoop(func(ctx *gfx.Context) {
-		for i := range cells {
-			for j := range cells[i] {
-				cells[i][j].checkState(cells)
-			}
-		}
-
-		ctx.Draw()
-	})
+	<-ctx.Done
 }
 
 type cell struct {
@@ -97,57 +64,10 @@ type cell struct {
 	age              int
 }
 
-func newCell(x, y int, ctx *gfx.Context) *cell {
-	points := make([]float32, len(square), len(square))
-	copy(points, square)
-
-	for i := range points {
-		var pos, size float32
-		switch i % 3 {
-		case 0:
-			size = 1.0 / float32(columns)
-			pos = float32(x) * size
-		case 1:
-			size = 1.0 / float32(rows)
-			pos = float32(y) * size
-		default:
-			continue
-		}
-
-		if points[i] < 0 {
-			points[i] = (pos * 2) - 1
-		} else {
-			points[i] = ((pos + size) * 2) - 1
-		}
-	}
-
-	c := &cell{
-		x: x,
-		y: y,
-	}
-	if err := ctx.AddVertexArrayObject(&gfx.VAOConfig{
-		Vertices:   points,
-		Size:       3,
-		GLDrawType: gl.TRIANGLE_STRIP,
-		OnDraw: func(ctx *gfx.Context) bool {
-			if !c.alive {
-				return false
-			}
-			v := c.getColor()
-			uloc := ctx.GetUniformLocation("uColor")
-			gl.Uniform4f(uloc, v[0], v[1], v[2], v[3])
-			return true
-		},
-	}); err != nil {
-		panic(err)
-	}
-	return c
-}
-
-func (c *cell) getColor() []float32 {
-	color := ageColors[c.age]
-	if color == nil {
-		color = ageColors[len(ageColors)]
+func (c *cell) getColor() ml.Vec4 {
+	color, ok := ageColors[c.age]
+	if !ok {
+		color = ml.Vec4{0, 0, 0, 0} // ageColors[len(ageColors)]
 	}
 	return color
 }
@@ -201,14 +121,14 @@ func (c *cell) liveNeighbors(cells [][]*cell) int {
 	return liveCount
 }
 
-func makeCells(ctx *gfx.Context) [][]*cell {
+func makeCells() [][]*cell {
 	rand.Seed(time.Now().UnixNano())
 
 	cells := make([][]*cell, rows, rows)
 	for i := range cells {
 		cells[i] = make([]*cell, columns, columns)
 		for j := range cells[i] {
-			c := newCell(i, j, ctx)
+			c := &cell{x: i, y: j}
 			cells[i][j] = c
 			c.alive = rand.Float64() < 0.15
 			c.aliveNext = c.alive
