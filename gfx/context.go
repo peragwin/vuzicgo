@@ -1,6 +1,7 @@
 package gfx
 
 import (
+	"context"
 	"log"
 	"runtime"
 
@@ -15,10 +16,13 @@ type Context struct {
 
 	uniforms map[string]int32
 	vaos     []*VertexArrayObject
+
+	ctx context.Context
 }
 
 // NewContext creates a new opengl context
-func NewContext(windowConfig *WindowConfig, shaderConfigs []*ShaderConfig) (*Context, error) {
+func NewContext(ctx context.Context,
+	windowConfig *WindowConfig, shaderConfigs []*ShaderConfig) (*Context, error) {
 	window, err := NewWindow(windowConfig)
 	if err != nil {
 		return nil, err
@@ -54,6 +58,7 @@ func NewContext(windowConfig *WindowConfig, shaderConfigs []*ShaderConfig) (*Con
 		Window:   window,
 		Program:  program,
 		uniforms: uniforms,
+		ctx:      ctx,
 	}, nil
 }
 
@@ -65,6 +70,12 @@ func (c *Context) EventLoop(render func(*Context)) {
 	runtime.LockOSThread()
 
 	for !c.Window.GlfwWindow.ShouldClose() {
+		select {
+		case <-c.ctx.Done():
+			return
+		default:
+		}
+
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		gl.UseProgram(c.Program.ProgramID)
 

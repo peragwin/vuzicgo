@@ -1,6 +1,8 @@
 package grid
 
 import (
+	"context"
+
 	"github.com/go-gl/gl/v4.1-core/gl"
 	ml "github.com/go-gl/mathgl/mgl32"
 	"github.com/peragwin/vuzicgo/gfx"
@@ -59,8 +61,8 @@ type Config struct {
 }
 
 // NewGrid creates a new Grid display
-func NewGrid(cfg *Config) (*Grid, error) {
-	ctx, err := gfx.NewContext(&gfx.WindowConfig{
+func NewGrid(ctx context.Context, cfg *Config) (*Grid, error) {
+	g, err := gfx.NewContext(ctx, &gfx.WindowConfig{
 		Width: cfg.Width, Height: cfg.Height, Title: cfg.Title,
 	}, []*gfx.ShaderConfig{
 		&gfx.ShaderConfig{
@@ -81,17 +83,17 @@ func NewGrid(cfg *Config) (*Grid, error) {
 		rows:    cfg.Rows,
 		columns: cfg.Columns,
 
-		Gfx:  ctx,
+		Gfx:  g,
 		Done: make(chan struct{}),
 	}
 
-	if err := grid.createCells(cfg.Columns, cfg.Rows, ctx); err != nil {
+	if err := grid.createCells(cfg.Columns, cfg.Rows, g); err != nil {
 		return nil, err
 	}
 
 	go func() {
-		defer ctx.Terminate()
-		ctx.EventLoop(func(ctx *gfx.Context) {
+		defer g.Terminate()
+		g.EventLoop(func(g *gfx.Context) {
 			cfg.Render(grid)
 		})
 		grid.Done <- struct{}{}
@@ -105,8 +107,15 @@ func (g *Grid) SetColor(i, j int, color ml.Vec4) {
 	g.colors[g.getColorIndex(i, j)] = color
 }
 
+// Clear sets all the cells to black
+func (g *Grid) Clear() {
+	for i := range g.colors {
+		g.colors[i] = ml.Vec4{}
+	}
+}
+
 func (g *Grid) getColorIndex(i, j int) int {
-	return i*g.columns + j
+	return i*g.rows + j
 }
 
 func (g *Grid) createCells(columns, rows int, ctx *gfx.Context) error {
