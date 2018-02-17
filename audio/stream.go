@@ -27,6 +27,9 @@ func NewSource(ctx context.Context, cfg *Config) (<-chan []float32, <-chan error
 	go func() {
 		defer close(out)
 
+		portaudio.Initialize()
+		defer portaudio.Terminate()
+
 		in := make([]float32, cfg.BlockSize)
 
 		stream, err := portaudio.OpenDefaultStream(
