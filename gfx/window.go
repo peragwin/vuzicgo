@@ -40,5 +40,12 @@ func NewWindow(cfg *WindowConfig) (*Window, error) {
 	}
 	window.MakeContextCurrent()
 
+	window.SetKeyCallback(
+		func(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+			if key == glfw.KeyQ {
+				window.SetShouldClose(true)
+			}
+		})
+
 	return &Window{Config: cfg, GlfwWindow: window}, nil
 }
