@@ -5,31 +5,33 @@ package main
 
 import (
 	"context"
+	"image/color"
 	"log"
 	"sync"
 
-	"github.com/go-gl/mathgl/mgl32"
 	"github.com/peragwin/vuzicgo/audio"
 	"github.com/peragwin/vuzicgo/gfx/grid"
 )
 
 const (
-	frameSize  = 128
+	frameSize  = 512
 	sampleRate = 44100
 
 	width  = 640
 	height = 480
 
-	rows = 100
-
-	scale = 32
+	rows = 256
 )
+
+var scale float32 = 1.0
 
 func main() {
 	// runtime.LockOSThread()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	done := make(chan struct{})
 
 	source, errc := audio.NewSource(ctx, &audio.Config{
 		BlockSize:  frameSize,
@@ -53,8 +55,14 @@ func main() {
 					return
 				}
 				lock.Lock()
+
+				var max float32 = 0.00001
 				for i, val := range in {
-					v := int(rows * (1.0 + scale*val) / 2.0)
+					if val > max {
+						max = val
+					}
+
+					v := int(rows * (0.5 + 2.0/rows*scale*val))
 					if v >= rows {
 						v = rows - 1
 					} else if v < 0 {
@@ -63,6 +71,11 @@ func main() {
 					buffer[bufferIdx][i] = v
 				}
 				bufferIdx ^= 1
+
+				// sum = float32(math.Sqrt(float64(sum)))
+				// sum /= float32(len(in))
+				scale = .95*scale + float32(.5/float64(max))
+
 				lock.Unlock()
 			case err := <-errc:
 				log.Println("steam error:", err)
@@ -71,7 +84,7 @@ func main() {
 		}
 	}()
 
-	display, err := grid.NewGrid(ctx, &grid.Config{
+	_, err := grid.NewGrid(done, &grid.Config{
 		Rows: rows, Columns: frameSize,
 		Width: width, Height: height,
 		Title: "Waveform Display",
@@ -84,10 +97,10 @@ func main() {
 			prev := bufferIdx
 			recent := bufferIdx ^ 1
 			for i, val := range buffer[prev] {
-				g.SetColor(i, val, mgl32.Vec4{0.0, 1.0, 0.0, 0.5})
+				g.SetColor(i, val, color.RGBA{0, 255, 0, 127})
 			}
 			for i, val := range buffer[recent] {
-				g.SetColor(i, val, mgl32.Vec4{0.0, 1.0, 0.0, 1.0})
+				g.SetColor(i, val, color.RGBA{0, 255, 0, 255})
 			}
 		},
 	})
@@ -95,5 +108,5 @@ func main() {
 		log.Fatal("error creating display:", err)
 	}
 
-	<-display.Done
+	<-done
 }
