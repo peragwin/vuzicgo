@@ -2,6 +2,7 @@ package gfx
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 )
@@ -20,16 +21,22 @@ type VertexArrayObject struct {
 // also be used to set uniforms.
 type VAOConfig struct {
 	Vertices   []float32
+	VertAttr   string
+	TexAttr    string
+	Stride     int32
 	Size       int
 	GLDrawType uint32
 	OnDraw     func(ctx *Context) bool
 }
 
 // NewVertexArrayObject creates a VertexArrayObject
-func NewVertexArrayObject(cfg *VAOConfig) (*VertexArrayObject, error) {
+func (c *Context) NewVertexArrayObject(cfg *VAOConfig) (*VertexArrayObject, error) {
 	if len(cfg.Vertices)%cfg.Size != 0 {
 		return nil, errors.New("invalid length for vertices must be multiple of size")
 	}
+	fmt.Println(cfg.Vertices)
+	stride := 4 * cfg.Stride
+	fmt.Println(stride)
 
 	var vbo uint32
 	gl.GenBuffers(1, &vbo)
@@ -39,23 +46,33 @@ func NewVertexArrayObject(cfg *VAOConfig) (*VertexArrayObject, error) {
 	var vao uint32
 	gl.GenVertexArrays(1, &vao)
 	gl.BindVertexArray(vao)
-	gl.EnableVertexAttribArray(0)
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-	gl.VertexAttribPointer(0, int32(cfg.Size), gl.FLOAT, false, 0, nil)
+
+	vattr := c.GetAttributeLocation(cfg.VertAttr)
+	gl.EnableVertexAttribArray(vattr)
+	gl.VertexAttribPointer(vattr, int32(cfg.Size), gl.FLOAT, false, stride, gl.PtrOffset(0))
+
+	tattr := c.GetAttributeLocation(cfg.TexAttr)
+	fmt.Println(vattr, tattr)
+	gl.EnableVertexAttribArray(tattr)
+	gl.VertexAttribPointer(tattr, 2, gl.FLOAT, false, stride, gl.PtrOffset(cfg.Size*4))
+
+	gl.BindVertexArray(0)
 
 	return &VertexArrayObject{
-		vao, int32(len(cfg.Vertices) / cfg.Size), cfg.GLDrawType,
+		vao, int32(len(cfg.Vertices)) / cfg.Stride, cfg.GLDrawType,
 		cfg.OnDraw,
 	}, nil
 }
 
 // Draw draws a VertexArrayObject to the current frame buffer
 func (v *VertexArrayObject) Draw(ctx *Context) {
+
+	// fmt.Println("draw vao", v.length)
+	gl.BindVertexArray(v.vaoID)
 	if v.onDraw != nil {
 		if !v.onDraw(ctx) {
 			return
 		}
 	}
-	gl.BindVertexArray(v.vaoID)
 	gl.DrawArrays(v.glDrawType, 0, v.length)
 }

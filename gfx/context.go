@@ -1,7 +1,7 @@
 package gfx
 
 import (
-	"context"
+	"image"
 	"log"
 	"runtime"
 
@@ -14,14 +14,17 @@ type Context struct {
 	Window  *Window
 	Program *Program
 
-	uniforms map[string]int32
-	vaos     []*VertexArrayObject
+	uniforms   map[string]int32
+	attributes map[string]int32
 
-	ctx context.Context
+	vaos     []*VertexArrayObject
+	textures []*TextureObject
+
+	done chan struct{}
 }
 
 // NewContext creates a new opengl context
-func NewContext(ctx context.Context,
+func NewContext(done chan struct{},
 	windowConfig *WindowConfig, shaderConfigs []*ShaderConfig) (*Context, error) {
 	window, err := NewWindow(windowConfig)
 	if err != nil {
@@ -33,6 +36,9 @@ func NewContext(ctx context.Context,
 	}
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	log.Println("OpenGL version", version)
+
+	//gl.Enable(gl.BLEND)
+	//gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
 	program, err := NewProgram()
 	if err != nil {
@@ -48,17 +54,22 @@ func NewContext(ctx context.Context,
 	}
 
 	uniforms := make(map[string]int32)
+	attributes := make(map[string]int32)
 	for _, sh := range program.Shaders {
 		for uname, uloc := range sh.UniformLocations {
 			uniforms[uname] = uloc
 		}
+		for aname, aloc := range sh.AttributeLocations {
+			attributes[aname] = aloc
+		}
 	}
 
 	return &Context{
-		Window:   window,
-		Program:  program,
-		uniforms: uniforms,
-		ctx:      ctx,
+		Window:     window,
+		Program:    program,
+		uniforms:   uniforms,
+		attributes: attributes,
+		done:       done,
 	}, nil
 }
 
@@ -71,7 +82,7 @@ func (c *Context) EventLoop(render func(*Context)) {
 
 	for !c.Window.GlfwWindow.ShouldClose() {
 		select {
-		case <-c.ctx.Done():
+		case <-c.done:
 			return
 		default:
 		}
@@ -103,7 +114,7 @@ func (c *Context) Terminate() {
 // AddVertexArrayObject creates a VAO from a VertexBufferObject
 // (todo implement that type)
 func (c *Context) AddVertexArrayObject(cfg *VAOConfig) error {
-	vao, err := NewVertexArrayObject(cfg)
+	vao, err := c.NewVertexArrayObject(cfg)
 	if err != nil {
 		return err
 	}
@@ -115,7 +126,83 @@ func (c *Context) AddVertexArrayObject(cfg *VAOConfig) error {
 func (c *Context) GetUniformLocation(uname string) int32 {
 	uloc, ok := c.uniforms[uname]
 	if !ok {
-		panic("unknown uniform name")
+		panic("unknown uniform name: " + uname)
 	}
 	return uloc
+}
+
+// GetAttributeLocation returns the location of an attribute with context's program.
+func (c *Context) GetAttributeLocation(name string) uint32 {
+	loc, ok := c.attributes[name]
+	if !ok {
+		panic("unknown attribute name: " + name)
+	}
+	return uint32(loc)
+}
+
+// TextureConfig is a configuration for creating a new TextureObject
+type TextureConfig struct {
+	Image       *image.RGBA
+	UniformName string
+}
+
+// TextureObject represents a texture that is
+type TextureObject struct {
+	texID  uint32
+	texLoc int32
+	pbo    uint32
+	image  *image.RGBA
+}
+
+// AddTextureObject creates a new TextureObject by first creating a PixelBufferObject
+// that will be used to store the texture. The PBO can be updated by calling
+// TextureObject.Update() which will read the current state of cfg.Image.
+func (c *Context) AddTextureObject(cfg *TextureConfig) (*TextureObject, error) {
+
+	// var pbo uint32
+	// gl.GenBuffers(1, &pbo)
+	// gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, pbo)
+	// // Write PBO with nil to initialize the space
+	// gl.BufferData(gl.PIXEL_UNPACK_BUFFER, len(cfg.Image.Pix), nil, gl.STREAM_DRAW)
+
+	var texID uint32
+	gl.GenTextures(1, &texID)
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, texID)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+
+	// write texture with nil pointer to initialize the space
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA,
+		int32(cfg.Image.Rect.Size().X), int32(cfg.Image.Rect.Size().Y),
+		0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(cfg.Image.Pix))
+
+	texLoc := c.GetUniformLocation(cfg.UniformName)
+	//fmt.Println("texLoc", texLoc, texID)
+	gl.Uniform1i(texLoc, 0)
+
+	tex := &TextureObject{
+		texID:  texID,
+		texLoc: texLoc,
+		//pbo:    pbo,
+		image: cfg.Image,
+	}
+	c.textures = append(c.textures, tex)
+	return tex, nil
+}
+
+func (t *TextureObject) Update() {
+	// Update the PBO with image
+	//gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, t.pbo)
+	//gl.BufferData(gl.PIXEL_UNPACK_BUFFER, len(t.image.Pix), gl.Ptr(t.image.Pix), gl.WRITE_ONLY)
+
+	// Write PBO to texture object
+	//fmt.Println("bind texture")
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, t.texID)
+	gl.TexSubImage2D(gl.TEXTURE_2D, 0, 0, 0,
+		int32(t.image.Rect.Size().X), int32(t.image.Rect.Size().Y),
+		gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(t.image.Pix)) //nil)
 }

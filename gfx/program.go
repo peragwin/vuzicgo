@@ -51,6 +51,15 @@ func (p *Program) Link() error {
 			}
 			sh.UniformLocations[uname] = uloc
 		}
+		for aname := range sh.AttributeLocations {
+			aloc := gl.GetAttribLocation(p.ProgramID, gl.Str(aname+"\x00"))
+			if aloc == -1 {
+				return fmt.Errorf("location of attribute '%s' not found", aname)
+			} else if aloc < 0 {
+				return fmt.Errorf("unknown error %d", aloc)
+			}
+			sh.AttributeLocations[aname] = aloc
+		}
 	}
 
 	return nil

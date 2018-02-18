@@ -9,8 +9,9 @@ import (
 
 // Shader represents a shader with attached attribute pointers.
 type Shader struct {
-	ShaderID         uint32
-	UniformLocations map[string]int32
+	ShaderID           uint32
+	UniformLocations   map[string]int32
+	AttributeLocations map[string]int32
 
 	// whether shader has been attached to a program
 	init bool
@@ -18,9 +19,10 @@ type Shader struct {
 
 // ShaderConfig is used to create new shaders
 type ShaderConfig struct {
-	Source       string
-	Typ          ShaderType
-	UniformNames []string
+	Source         string
+	Typ            ShaderType
+	AttributeNames []string
+	UniformNames   []string
 }
 
 // ShaderType tells NewShader what type of shader it's creating.
@@ -42,7 +44,11 @@ func NewShader(cfg *ShaderConfig) (*Shader, error) {
 	for _, un := range cfg.UniformNames {
 		uloc[un] = -1
 	}
-	return &Shader{ShaderID: id, UniformLocations: uloc}, nil
+	aloc := make(map[string]int32)
+	for _, an := range cfg.AttributeNames {
+		aloc[an] = -1
+	}
+	return &Shader{ShaderID: id, UniformLocations: uloc, AttributeLocations: aloc}, nil
 }
 
 // // Verify checks that all variables are accounted for in UniformLocations
