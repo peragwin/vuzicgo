@@ -46,7 +46,6 @@ func (c *Context) AddTextureObject(cfg *TextureConfig) (*TextureObject, error) {
 		0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(cfg.Image.Pix))
 
 	texLoc := c.GetUniformLocation(cfg.UniformName)
-	//fmt.Println("texLoc", texLoc, texID)
 	gl.Uniform1i(texLoc, 0)
 
 	tex := &TextureObject{
@@ -65,7 +64,6 @@ func (t *TextureObject) Update() {
 	//gl.BufferData(gl.PIXEL_UNPACK_BUFFER, len(t.image.Pix), gl.Ptr(t.image.Pix), gl.WRITE_ONLY)
 
 	// Write PBO to texture object
-	//fmt.Println("bind texture")
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, t.texID)
 	gl.TexSubImage2D(gl.TEXTURE_2D, 0, 0, 0,
