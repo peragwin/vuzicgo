@@ -1,11 +1,11 @@
 package main
 
 import (
+	"image/color"
 	"log"
 	"math/rand"
 	"time"
 
-	ml "github.com/go-gl/mathgl/mgl32"
 	"github.com/peragwin/vuzicgo/gfx"
 	"github.com/peragwin/vuzicgo/gfx/grid"
 )
@@ -14,25 +14,26 @@ const (
 	width  = 800
 	height = 600
 
-	rows    = 100
-	columns = 100
+	rows    = 128 * 2
+	columns = 128 * 2
 )
 
 var (
-	ageColors = map[int]ml.Vec4{
-		1: ml.Vec4{0.90, 0.00, 0.47, 1.0},
-		2: ml.Vec4{0.87, 0.31, 0.00, 1.0},
-		3: ml.Vec4{0.62, 0.84, 0.00, 1.0},
-		4: ml.Vec4{0.00, 0.81, 0.11, 1.0},
-		5: ml.Vec4{0.00, 0.76, 0.78, 1.0},
-		6: ml.Vec4{0.00, 0.06, 0.75, 1.0},
+	ageColors = map[int]color.RGBA{
+		1: color.RGBA{230, 0., 120, 255},
+		2: color.RGBA{222, 79, 0, 255},
+		3: color.RGBA{158, 214, 0, 255},
+		4: color.RGBA{0, 207, 28, 255},
+		5: color.RGBA{0, 194, 199, 255},
+		6: color.RGBA{0, 15, 191, 255},
 	}
 )
 
 func main() {
 	cells := makeCells()
+	done := make(chan struct{})
 
-	ctx, err := grid.NewGrid(&grid.Config{
+	_, err := grid.NewGrid(done, &grid.Config{
 		Width: 800, Height: 600, Title: "Game of Life",
 		Columns: columns, Rows: rows,
 		Render: func(ctx *grid.Grid) {
@@ -52,7 +53,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	<-ctx.Done
+	<-done
 }
 
 type cell struct {
@@ -64,12 +65,12 @@ type cell struct {
 	age              int
 }
 
-func (c *cell) getColor() ml.Vec4 {
-	color, ok := ageColors[c.age]
+func (c *cell) getColor() color.RGBA {
+	cl, ok := ageColors[c.age]
 	if !ok {
-		color = ml.Vec4{0, 0, 0, 0} // ageColors[len(ageColors)]
+		cl = color.RGBA{0, 0, 0, 0} // ageColors[len(ageColors)]
 	}
-	return color
+	return cl
 }
 
 func (c *cell) checkState(cells [][]*cell) {
