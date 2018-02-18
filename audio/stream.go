@@ -32,6 +32,26 @@ func NewSource(ctx context.Context, cfg *Config) (<-chan []float32, <-chan error
 
 		in := make([]float32, cfg.BlockSize)
 
+		// devices, err := portaudio.Devices()
+		// if err != nil {
+		// 	errc <- err
+		// 	return
+		// }
+		// devID := 0
+		// for i, dev := range devices {
+		// 	if dev.Name == "default" {
+		// 		devID = i
+		// 	}
+		// }
+		// stream, err := portaudio.OpenStream(portaudio.StreamParameters{
+		// 	Input: portaudio.StreamDeviceParameters{
+		// 		Device:   devices[devID],
+		// 		Channels: 1,
+		// 		Latency:  devices[devID].DefaultHighInputLatency,
+		// 	},
+		// 	SampleRate:      cfg.SampleRate,
+		// 	FramesPerBuffer: cfg.BlockSize,
+		// }, in)
 		stream, err := portaudio.OpenDefaultStream(
 			cfg.Channels, 0, cfg.SampleRate, cfg.BlockSize, in)
 		if err != nil {

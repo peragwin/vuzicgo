@@ -209,7 +209,6 @@ func newTexture() (uint32, error) {
 			}
 		}
 	}
-	fmt.Println(rgba)
 
 	var texture uint32
 	gl.GenTextures(1, &texture)

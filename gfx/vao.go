@@ -2,7 +2,6 @@ package gfx
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 )
@@ -34,9 +33,7 @@ func (c *Context) NewVertexArrayObject(cfg *VAOConfig) (*VertexArrayObject, erro
 	if len(cfg.Vertices)%cfg.Size != 0 {
 		return nil, errors.New("invalid length for vertices must be multiple of size")
 	}
-	fmt.Println(cfg.Vertices)
 	stride := 4 * cfg.Stride
-	fmt.Println(stride)
 
 	var vbo uint32
 	gl.GenBuffers(1, &vbo)
@@ -52,7 +49,6 @@ func (c *Context) NewVertexArrayObject(cfg *VAOConfig) (*VertexArrayObject, erro
 	gl.VertexAttribPointer(vattr, int32(cfg.Size), gl.FLOAT, false, stride, gl.PtrOffset(0))
 
 	tattr := c.GetAttributeLocation(cfg.TexAttr)
-	fmt.Println(vattr, tattr)
 	gl.EnableVertexAttribArray(tattr)
 	gl.VertexAttribPointer(tattr, 2, gl.FLOAT, false, stride, gl.PtrOffset(cfg.Size*4))
 
@@ -66,8 +62,6 @@ func (c *Context) NewVertexArrayObject(cfg *VAOConfig) (*VertexArrayObject, erro
 
 // Draw draws a VertexArrayObject to the current frame buffer
 func (v *VertexArrayObject) Draw(ctx *Context) {
-
-	// fmt.Println("draw vao", v.length)
 	gl.BindVertexArray(v.vaoID)
 	if v.onDraw != nil {
 		if !v.onDraw(ctx) {
