@@ -18,7 +18,7 @@ const (
 	height = 800
 
 	buckets = 64
-	columns = 64
+	columns = 16
 
 	textureMode = gl.LINEAR
 )
@@ -61,38 +61,7 @@ func main() {
 		log.Fatal(err)
 	}()
 
-	source64 := make(chan []float64)
-	// convert intput to float64
-	// overlap frames by 50%
-	go func() {
-		defer close(done)
-		y := make([]float64, frameSize*2)
-		bufferIndex := 0
-		for {
-			select {
-			case <-done:
-				return
-			default:
-			}
-			x := <-source
-
-			offset := bufferIndex * frameSize
-			for i := range x {
-				y[i+offset] = float64(x[i])
-			}
-			if bufferIndex == 1 {
-				z := y[frameSize/2 : 2*frameSize-frameSize/2]
-				source64 <- z
-				source64 <- y[frameSize:]
-			} else {
-				z := append(y[2*frameSize-frameSize/2:], y[:frameSize/2]...)
-				source64 <- z
-				source64 <- y[:frameSize]
-			}
-
-			bufferIndex ^= 1
-		}
-	}()
+	source64 := audio.Buffer(done, source)
 
 	fftProc := fft.NewFFTProcessor(sampleRate, frameSize)
 	fftOut := fftProc.Process(done, source64)
