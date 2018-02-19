@@ -28,7 +28,7 @@ func TestFilter(t *testing.T) {
 	newDisplay := func() *Display {
 		return &Display{
 			Buckets: 1,
-			params:  DefaultParameters,
+			params:  defaultParameters,
 			//drivers:      drivers,
 			filterParams: testFilterParams,
 			filterValues: filterValues{
