@@ -58,6 +58,7 @@ type Grid struct {
 
 	image   *image.RGBA
 	texture *gfx.TextureObject
+	render  func(*Grid)
 
 	Gfx  *gfx.Context
 	Done chan struct{}
@@ -124,6 +125,7 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 
 		texture: tex,
 		image:   img,
+		render:  cfg.Render,
 
 		Gfx:  g,
 		Done: done,
@@ -138,7 +140,9 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 		defer close(done)
 
 		g.EventLoop(func(g *gfx.Context) {
-			cfg.Render(grid)
+			if grid.render != nil {
+				grid.render(grid)
+			}
 		})
 	}()
 
@@ -147,7 +151,6 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 
 // SetColor sets a cell in the grid to a color
 func (g *Grid) SetColor(i, j int, clr color.RGBA) {
-	//g.colors[g.getColorIndex(i, j)] = color
 	g.image.SetRGBA(i, j, clr)
 }
 
@@ -158,12 +161,14 @@ func (g *Grid) SetImage(img *image.RGBA) {
 
 // Clear sets all the cells to black
 func (g *Grid) Clear() {
-	// for i := range g.colors {
-	// 	g.colors[i] = ml.Vec4{}
-	// }
 	for i := range g.image.Pix {
 		g.image.Pix[i] = 0
 	}
+}
+
+// SetRenderFunc sets the render function of the display grid
+func (g *Grid) SetRenderFunc(render func(*Grid)) {
+	g.render = render
 }
 
 func (g *Grid) getColorIndex(i, j int) int {
@@ -171,50 +176,6 @@ func (g *Grid) getColorIndex(i, j int) int {
 }
 
 func (g *Grid) createCells(columns, rows int, ctx *gfx.Context) error {
-
-	//g.colors = make([]ml.Vec4, columns*rows)
-
-	// scaleX := 2.0 / float32(columns)
-	// scaleY := 2.0 / float32(rows)
-	// scale := ml.Scale3D(scaleX, scaleY, 0)
-
-	// for i := 0; i < columns; i++ {
-	// 	for j := 0; j < rows; j++ {
-
-	// tx := float32(i)*scaleX - 1.0
-	// ty := float32(j)*scaleY - 1.0
-	// translate := ml.Translate3D(tx, ty, 0)
-
-	// verts := make([]float32, 3*len(square))
-	// for u := 0; u < len(square); u++ {
-	// 	vec := square[u].Vec4(0, 1)
-	// 	vec = scale.Mul4x1(vec)
-	// 	vec = translate.Mul4x1(vec)
-
-	// 	for k := 0; k < 3; k++ {
-	// 		verts[3*u+k] = vec[k]
-	// 	}
-	// }
-
-	// index := g.getColorIndex(i, j)
-	// g.colors[index] = ml.Vec4{0, 0, 0, 0}
-	// uloc := g.Gfx.GetUniformLocation("u_color")
-
-	// if err := ctx.AddVertexArrayObject(&gfx.VAOConfig{
-	// 	Vertices:   verts,
-	// 	Size:       3,
-	// 	GLDrawType: gl.TRIANGLE_STRIP,
-	// 	OnDraw: func(ctx *gfx.Context) bool {
-	// 		v := g.colors[index]
-	// 		gl.Uniform4f(uloc, v[0], v[1], v[2], v[3])
-	// 		return true
-	// 	},
-	// }); err != nil {
-	// 	return err
-	// }
-	// 	}
-	// }
-
 	verts := make([]float32, 5*len(square))
 	for i := range square {
 		// xyz coord
@@ -238,18 +199,7 @@ func (g *Grid) createCells(columns, rows int, ctx *gfx.Context) error {
 	})
 }
 
-var count int
-
 func (g *Grid) drawTexture(*gfx.Context) bool {
-	// if count%60 == 0 {
-	// 	for i := range g.image.Pix {
-	// 		if g.image.Pix[i] != 0 {
-	// 			g.image.Pix[i] = 0
-	// 		} else {
-	// 			g.image.Pix[i] = 255
-	// 		}
-	// 	}
-	// }
 	g.texture.Update(g.image)
 	return true
 }

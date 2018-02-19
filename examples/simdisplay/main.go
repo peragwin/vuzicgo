@@ -11,23 +11,42 @@ import (
 )
 
 const (
-	frameSize  = 512
+	frameSize  = 1024
 	sampleRate = 44100
 
 	width  = 1200
 	height = 800
 
-	buckets = 16
-	columns = 60
+	buckets = 64
+	columns = 64
 
 	textureMode = gl.LINEAR
 )
 
+func initGfx(done chan struct{}) *grid.Grid {
+	g, err := grid.NewGrid(done, &grid.Config{
+		Rows: buckets, Columns: columns,
+		Width: width, Height: height,
+		Title:       "Sim LED Display",
+		TextureMode: textureMode,
+	})
+	if err != nil {
+		log.Fatal("error creating display:", err)
+	}
+	return g
+}
+
 func main() {
+	render := make(chan struct{})
+	defer close(render)
+	done := make(chan struct{})
+
+	// The graphics have to be the first thing we initialize on macOS; I'm guessing it's
+	// because of the syscall that binds it to the main thread.
+	g := initGfx(done)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	done := make(chan struct{})
 
 	source, errc := audio.NewSource(ctx, &audio.Config{
 		BlockSize:  frameSize,
@@ -81,8 +100,6 @@ func main() {
 	specProc := new(fft.PowerSpectrumProcessor)
 	specOut := specProc.Process(done, fftOut)
 
-	render := make(chan struct{})
-	defer close(render)
 	display := NewDisplay(&Config{
 		Columns:    columns,
 		Buckets:    buckets,
@@ -91,20 +108,11 @@ func main() {
 	})
 	frames := display.Process(done, specOut, render)
 
-	_, err := grid.NewGrid(done, &grid.Config{
-		Rows: buckets, Columns: columns,
-		Width: width, Height: height,
-		Title:       "Sim LED Display",
-		TextureMode: textureMode,
-		Render: func(g *grid.Grid) {
-			render <- struct{}{}
-			img := <-frames
-			g.SetImage(img)
-		},
+	g.SetRenderFunc(func(g *grid.Grid) {
+		render <- struct{}{}
+		img := <-frames
+		g.SetImage(img)
 	})
-	if err != nil {
-		log.Fatal("error creating display:", err)
-	}
 
 	<-done
 }

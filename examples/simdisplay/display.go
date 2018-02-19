@@ -24,7 +24,7 @@ var (
 	defaultVGCParams = []float64{0.05, 0.95}
 
 	// defaultParameters is a set of default parameters that work okay
-	defaultParameters = Parameters{
+	defaultParameters = &Parameters{
 		GlobalBrightness: 127, // center around 50% brightness
 		Brightness:       2,
 		Offset:           1.5,
@@ -41,7 +41,7 @@ type Display struct {
 	Buckets    int
 	SampleRate float64
 
-	params       Parameters
+	params       *Parameters
 	drivers      drivers
 	filterParams filterValues
 	filterValues filterValues
