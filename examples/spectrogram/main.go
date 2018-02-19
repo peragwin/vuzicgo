@@ -7,6 +7,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/peragwin/vuzicgo/audio"
 	"github.com/peragwin/vuzicgo/audio/fft"
 	"github.com/peragwin/vuzicgo/audio/util"
@@ -20,10 +21,10 @@ const (
 	width  = 1200
 	height = 800
 
-	rows = 256
-)
+	rows = 512
 
-var scale float32 = 1.0
+	textureMode = gl.LINEAR
+)
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -37,6 +38,7 @@ func main() {
 		Channels:   1,
 	})
 
+	// watch for errors
 	go func() {
 		defer close(done)
 		err := <-errc
@@ -47,9 +49,11 @@ func main() {
 
 	source64 := make(chan []float64)
 	// convert intput to float64
+	// overlap frames by 50%
 	go func() {
 		defer close(done)
-		y := make([]float64, frameSize)
+		y := make([]float64, frameSize*2)
+		bufferIndex := 0
 		for {
 			select {
 			case <-done:
@@ -58,10 +62,17 @@ func main() {
 			}
 			x := <-source
 
+			offset := bufferIndex * frameSize
 			for i := range x {
-				y[i] = float64(x[i])
+				y[i+offset] = float64(x[i])
 			}
-			source64 <- y
+			if bufferIndex == 1 {
+				source64 <- y[offset/2 : frameSize-offset/2]
+				source64 <- y[offset:]
+			} else {
+				source64 <- append(y[frameSize-frameSize/2:], y[:frameSize/2]...)
+				source64 <- y[:frameSize]
+			}
 		}
 	}()
 
@@ -132,7 +143,8 @@ func main() {
 	_, err := grid.NewGrid(done, &grid.Config{
 		Rows: frameSize / 2, Columns: rows,
 		Width: width, Height: height,
-		Title: "Spectrogram Display",
+		Title:       "Spectrogram Display",
+		TextureMode: textureMode,
 		Render: func(g *grid.Grid) {
 			// lock.Lock()
 			// defer lock.Unlock()

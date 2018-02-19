@@ -65,11 +65,12 @@ type Grid struct {
 
 // Config is a configuration for creating a new Grid.
 type Config struct {
-	Width   int
-	Height  int
-	Columns int
-	Rows    int
-	Title   string
+	Width       int
+	Height      int
+	Columns     int
+	Rows        int
+	Title       string
+	TextureMode int32
 
 	Render func(*Grid)
 }
@@ -111,6 +112,7 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 	tex, err := g.AddTextureObject(&gfx.TextureConfig{
 		Image:       img,
 		UniformName: "tex",
+		Mode:        cfg.TextureMode,
 	})
 	if err != nil {
 		return nil, err
@@ -147,6 +149,11 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 func (g *Grid) SetColor(i, j int, clr color.RGBA) {
 	//g.colors[g.getColorIndex(i, j)] = color
 	g.image.SetRGBA(i, j, clr)
+}
+
+// SetImage sets the entire display at once
+func (g *Grid) SetImage(img *image.RGBA) {
+	g.image = img
 }
 
 // Clear sets all the cells to black
@@ -243,6 +250,6 @@ func (g *Grid) drawTexture(*gfx.Context) bool {
 	// 		}
 	// 	}
 	// }
-	g.texture.Update()
+	g.texture.Update(g.image)
 	return true
 }

@@ -10,6 +10,7 @@ import (
 type TextureConfig struct {
 	Image       *image.RGBA
 	UniformName string
+	Mode        int32
 }
 
 // TextureObject represents a texture that is
@@ -31,12 +32,17 @@ func (c *Context) AddTextureObject(cfg *TextureConfig) (*TextureObject, error) {
 	// // Write PBO with nil to initialize the space
 	// gl.BufferData(gl.PIXEL_UNPACK_BUFFER, len(cfg.Image.Pix), nil, gl.STREAM_DRAW)
 
+	mode := int32(gl.LINEAR)
+	if cfg.Mode != 0 {
+		mode = cfg.Mode
+	}
+
 	var texID uint32
 	gl.GenTextures(1, &texID)
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, texID)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mode)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, mode)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
@@ -58,15 +64,19 @@ func (c *Context) AddTextureObject(cfg *TextureConfig) (*TextureObject, error) {
 	return tex, nil
 }
 
-func (t *TextureObject) Update() {
+func (t *TextureObject) Update(img *image.RGBA) {
 	// Update the PBO with image
 	//gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, t.pbo)
 	//gl.BufferData(gl.PIXEL_UNPACK_BUFFER, len(t.image.Pix), gl.Ptr(t.image.Pix), gl.WRITE_ONLY)
 
+	if img == nil {
+		img = t.image
+	}
+	size := img.Rect.Size()
+
 	// Write PBO to texture object
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, t.texID)
-	gl.TexSubImage2D(gl.TEXTURE_2D, 0, 0, 0,
-		int32(t.image.Rect.Size().X), int32(t.image.Rect.Size().Y),
-		gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(t.image.Pix)) //nil)
+	gl.TexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, int32(size.X), int32(size.Y),
+		gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(img.Pix)) //nil)
 }

@@ -30,6 +30,7 @@ func (f *FFTProcessor) Process(done chan struct{}, in chan []float64) chan []com
 	//errc := make(chan error)
 
 	go func() {
+		defer close(out)
 		for {
 			select {
 			case <-done:
@@ -39,7 +40,7 @@ func (f *FFTProcessor) Process(done chan struct{}, in chan []float64) chan []com
 
 			fx := <-in
 			window.Apply(fx, window.Hamming)
-			out <- fft.FFTReal(fx)[1 : len(fx)/2]
+			out <- fft.FFTReal(fx)[:len(fx)/2]
 		}
 	}()
 
@@ -54,6 +55,7 @@ func (p *PowerSpectrumProcessor) Process(done chan struct{}, in chan []complex12
 	out := make(chan []float64)
 
 	go func() {
+		defer close(out)
 		for {
 			select {
 			case <-done:
@@ -88,6 +90,7 @@ func SpectrumProcessor(done chan struct{}, in <-chan []float32, size int) chan [
 	var Fx []complex128
 	var N = float64(size)
 	go func() {
+		defer close(out)
 		for {
 			select {
 			case <-done:
