@@ -80,10 +80,15 @@ type BucketProcessor struct {
 	Bucketer *Bucketer
 }
 
+func NewBucketProcessor(b *Bucketer) *BucketProcessor {
+	return &BucketProcessor{b}
+}
+
 func (b *BucketProcessor) Process(done chan struct{}, in chan []float64) chan []float64 {
 	out := make(chan []float64)
 
 	go func() {
+		defer close(out)
 		for {
 			select {
 			case <-done:
