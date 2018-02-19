@@ -28,7 +28,7 @@ var (
 		GlobalBrightness: 127, // center around 50% brightness
 		Brightness:       2,
 		Offset:           1.5,
-		Period:           150,
+		Period:           32,
 		Gain:             1,
 		DifferentialGain: 4e-3,
 		Sync:             1.8e-3,
