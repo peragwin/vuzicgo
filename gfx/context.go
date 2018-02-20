@@ -25,10 +25,6 @@ type Context struct {
 // NewContext creates a new opengl context
 func NewContext(done chan struct{},
 	windowConfig *WindowConfig, shaderConfigs []*ShaderConfig) (*Context, error) {
-	window, err := NewWindow(windowConfig)
-	if err != nil {
-		return nil, err
-	}
 
 	if err := gl.Init(); err != nil {
 		return nil, err
@@ -36,8 +32,14 @@ func NewContext(done chan struct{},
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	log.Println("OpenGL version", version)
 
-	//gl.Enable(gl.BLEND)
-	//gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+	window, err := NewWindow(windowConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	gl.Flush()
+	gl.Enable(gl.BLEND)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
 	program, err := NewProgram()
 	if err != nil {
@@ -90,11 +92,13 @@ func (c *Context) EventLoop(render func(*Context)) {
 		gl.UseProgram(c.Program.ProgramID)
 
 		render(c)
-
 		c.Draw()
 
-		glfw.PollEvents()
+		gl.Flush()
+
 		c.Window.GlfwWindow.SwapBuffers()
+
+		glfw.PollEvents()
 	}
 }
 
