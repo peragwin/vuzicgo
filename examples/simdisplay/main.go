@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
@@ -14,19 +15,21 @@ const (
 	frameSize  = 1024
 	sampleRate = 44100
 
-	width  = 1200
-	height = 800
-
-	buckets = 64
-	columns = 16
-
 	textureMode = gl.LINEAR
+)
+
+var (
+	width  = flag.Int("width", 1200, "width of window")
+	height = flag.Int("height", 800, "height of window")
+
+	buckets = flag.Int("buckets", 64, "number of frequency buckets")
+	columns = flag.Int("columns", 16, "number of cells per row")
 )
 
 func initGfx(done chan struct{}) *grid.Grid {
 	g, err := grid.NewGrid(done, &grid.Config{
-		Rows: buckets, Columns: columns,
-		Width: width, Height: height,
+		Rows: *buckets, Columns: *columns,
+		Width: *width, Height: *height,
 		Title:       "Sim LED Display",
 		TextureMode: textureMode,
 	})
@@ -37,6 +40,8 @@ func initGfx(done chan struct{}) *grid.Grid {
 }
 
 func main() {
+	flag.Parse()
+
 	render := make(chan struct{})
 	defer close(render)
 	done := make(chan struct{})
@@ -70,8 +75,8 @@ func main() {
 	specOut := specProc.Process(done, fftOut)
 
 	display := NewDisplay(&Config{
-		Columns:    columns,
-		Buckets:    buckets,
+		Columns:    *columns,
+		Buckets:    *buckets,
 		SampleRate: sampleRate,
 		Parameters: defaultParameters,
 	})
