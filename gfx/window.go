@@ -1,6 +1,8 @@
 package gfx
 
 import (
+	"runtime"
+
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
 )
@@ -41,18 +43,20 @@ func NewWindow(cfg *WindowConfig) (*Window, error) {
 	}
 	window.MakeContextCurrent()
 
-	gl.Viewport(0, 0, int32(cfg.Width), int32(cfg.Height))
-
 	window.SetKeyCallback(
 		func(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 			if key == glfw.KeyQ {
 				window.SetShouldClose(true)
 			}
 		})
-	window.SetSizeCallback(
-		func(w *glfw.Window, width, height int) {
-			gl.Viewport(0, 0, int32(width), int32(height))
-		})
+
+	if runtime.GOOS == "linux" {
+		gl.Viewport(0, 0, int32(cfg.Width), int32(cfg.Height))
+		window.SetSizeCallback(
+			func(w *glfw.Window, width, height int) {
+				gl.Viewport(0, 0, int32(width), int32(height))
+			})
+	}
 
 	return &Window{Config: cfg, GlfwWindow: window}, nil
 }

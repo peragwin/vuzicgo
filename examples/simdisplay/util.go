@@ -49,9 +49,9 @@ func (v *variableGainController) apply(input []float64) {
 	var g = make([]float64, v.size)
 
 	for i := range g {
-		g[i] = sigmoidCurve(v.frame.AtVec(i))
+		//g[i] = sigmoidCurve(1 - v.frame.AtVec(i))
 		// alternate function: g(x) = 1 - x
-		// g[i] = (1 - v.frame.AtVec(i))
+		g[i] = customCurve(1 - v.frame.AtVec(i))
 	}
 
 	for i := range g {
@@ -60,7 +60,14 @@ func (v *variableGainController) apply(input []float64) {
 }
 
 func sigmoidCurve(x float64) float64 {
-	x = 1 - x
 	s := 1 / (1 + math.Exp(-x))
 	return 2*s - 1
+}
+
+func customCurve(x float64) float64 {
+	sign := 1.0
+	if x < 0 {
+		sign = -1.0
+	}
+	return sign * x * x
 }
