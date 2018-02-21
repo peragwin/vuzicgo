@@ -8,6 +8,12 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
+// Running modes
+const (
+	NormalMode = iota
+	AnimateMode
+)
+
 // Parameters is a set of parameters that control the visualization
 type Parameters struct {
 	GlobalBrightness float64 `json:"gbr"`
@@ -18,6 +24,7 @@ type Parameters struct {
 	Offset           float64 `json:"offset"`
 	Period           int     `json:"period"`
 	Sync             float64 `json:"sync"`
+	Mode             int     `json:"mode"`
 }
 
 // Config is passed to initialize the module
@@ -91,6 +98,10 @@ func (c *Config) graphql() (graphql.Schema, error) {
 					Type:    graphql.Float,
 					Resolve: resolver("sync"),
 				},
+				"mode": &graphql.Field{
+					Type:    graphql.Int,
+					Resolve: resolver("mode"),
+				},
 			},
 		},
 	)
@@ -122,6 +133,7 @@ func (c *Config) graphql() (graphql.Schema, error) {
 						"offset": &graphql.ArgumentConfig{Type: graphql.Float},
 						"period": &graphql.ArgumentConfig{Type: graphql.Int},
 						"sync":   &graphql.ArgumentConfig{Type: graphql.Float},
+						"mode":   &graphql.ArgumentConfig{Type: graphql.Int},
 					},
 					Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 						for arg, val := range p.Args {

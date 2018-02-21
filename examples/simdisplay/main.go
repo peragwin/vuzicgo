@@ -24,6 +24,8 @@ var (
 
 	buckets = flag.Int("buckets", 64, "number of frequency buckets")
 	columns = flag.Int("columns", 16, "number of cells per row")
+
+	mode = flag.Int("mode", NormalMode, "which mode: 0=Normal, 1=Animate")
 )
 
 func initGfx(done chan struct{}) *grid.Grid {
@@ -74,6 +76,8 @@ func main() {
 	specProc := new(fft.PowerSpectrumProcessor)
 	specOut := specProc.Process(done, fftOut)
 
+	defaultParameters.Mode = *mode
+	defaultParameters.Period = 3 * *columns / 2
 	display := NewDisplay(&Config{
 		Columns:    *columns,
 		Buckets:    *buckets,

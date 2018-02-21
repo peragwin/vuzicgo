@@ -7,13 +7,17 @@ import (
 )
 
 type drivers struct {
-	amplitude []float64
+	amplitude [][]float64
 	phase     []float64
 }
 
-func newDrivers(size int) drivers {
+func newDrivers(rows int, columns int) drivers {
+	amp := make([][]float64, columns)
+	for i := range amp {
+		amp[i] = make([]float64, rows)
+	}
 	return drivers{
-		make([]float64, size), make([]float64, size),
+		amp, make([]float64, rows),
 	}
 }
 

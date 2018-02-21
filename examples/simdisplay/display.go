@@ -13,7 +13,7 @@ import (
 var (
 	defaultFilterParams = filterValues{
 		gain: mat.NewDense(2, 2, []float64{
-			0.950, +0.100,
+			0.80, +0.200,
 			-0.005, 0.995,
 		}),
 		diff: mat.NewDense(2, 2, []float64{
@@ -28,10 +28,11 @@ var (
 		GlobalBrightness: 127, // center around 50% brightness
 		Brightness:       2,
 		Offset:           1,
-		Period:           32,
+		Period:           24,
 		Gain:             1,
 		DifferentialGain: 4e-3,
 		Sync:             1.8e-3,
+		Mode:             AnimateMode,
 	}
 )
 
@@ -59,7 +60,7 @@ func NewDisplay(cfg *Config) *Display {
 		SampleRate:   cfg.SampleRate,
 		params:       cfg.Parameters,
 		display:      display,
-		drivers:      newDrivers(cfg.Buckets),
+		drivers:      newDrivers(cfg.Buckets, cfg.Columns),
 		filterParams: defaultFilterParams,
 		filterValues: filterValues{
 			gain: mat.NewDense(2, cfg.Buckets, nil),
@@ -171,10 +172,17 @@ func (d *Display) applyChannelEffects() {
 	gain := d.filterValues.gain.RawRowView(0)
 	diff := d.filterValues.diff.RawRowView(0)
 
-	var meangain float64
+	decay := 1 - (2.0 / float64(d.Columns))
+	if d.params.Mode == AnimateMode {
+		for i := len(d.drivers.amplitude) / 2; i >= 0; i-- { // -2
+			for j := range d.drivers.amplitude[i] {
+				d.drivers.amplitude[i+1][j] = decay * d.drivers.amplitude[i][j]
+			}
+		}
+	}
+
 	for i := range gain {
-		meangain += gain[i]
-		d.drivers.amplitude[i] = ao + ag*gain[i]
+		d.drivers.amplitude[0][i] = ao + ag*gain[i]
 	}
 	for i := range diff {
 		ph := d.drivers.phase[i] + .001 // apply a constant opposing pressure
@@ -211,7 +219,10 @@ func (d *Display) render() {
 func (d *Display) renderColumn(col int) []color.RGBA {
 	br := d.params.Brightness
 	gbr := d.params.GlobalBrightness
-	amp := d.drivers.amplitude
+	amp := d.drivers.amplitude[0]
+	if d.params.Mode == AnimateMode {
+		amp = d.drivers.amplitude[col]
+	}
 	phase := d.drivers.phase
 	ws := 2.0 * math.Pi / float64(d.params.Period)
 	phi := ws * float64(col)
