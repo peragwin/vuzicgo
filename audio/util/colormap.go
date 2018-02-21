@@ -43,8 +43,11 @@ func mustParseHex(s string) colorful.Color {
 	return c
 }
 
+// ColorMap represents a linear colormap array.
 type ColorMap []color.RGBA
 
+// NewColorMap creates a colormap of @size by interpolating colors for each value along
+// the hard-coded gradient.
 func NewColorMap(size int) ColorMap {
 	// The "keypoints" of the gradient.
 	table := colorTable{
@@ -68,29 +71,3 @@ func NewColorMap(size int) ColorMap {
 	}
 	return colors
 }
-
-// func foo() {
-// 	h := 1024
-// 	w := 40
-
-// 	if len(os.Args) == 3 {
-// 		// Meh, I'm being lazy...
-// 		w, _ = strconv.Atoi(os.Args[1])
-// 		h, _ = strconv.Atoi(os.Args[2])
-// 	}
-
-// 	img := image.NewRGBA(image.Rect(0, 0, w, h))
-
-// 	for y := h - 1; y >= 0; y-- {
-// 		c := keypoints.GetInterpolatedColorFor(float64(y) / float64(h))
-// 		draw.Draw(img, image.Rect(0, y, w, y+1), &image.Uniform{c}, image.ZP, draw.Src)
-// 	}
-
-// 	outpng, err := os.Create("gradientgen.png")
-// 	if err != nil {
-// 		panic("Error storing png: " + err.Error())
-// 	}
-// 	defer outpng.Close()
-
-// 	png.Encode(outpng, img)
-// }
