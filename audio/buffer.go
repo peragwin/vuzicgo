@@ -5,7 +5,7 @@ package audio
 // to work with down the line using go's math package.
 func Buffer(done chan struct{}, in <-chan []float32) chan []float64 {
 
-	out := make(chan []float64)
+	out := make(chan []float64, 2)
 
 	x := <-in
 	frameSize := len(x)
@@ -30,12 +30,12 @@ func Buffer(done chan struct{}, in <-chan []float32) chan []float64 {
 				y[i+offset] = float64(x[i])
 			}
 			if bufferIndex == 1 {
-				z := y[frameSize/2 : 2*frameSize-frameSize/2]
-				out <- z
+				// z := y[frameSize/2 : 2*frameSize-frameSize/2]
+				// out <- z
 				out <- y[frameSize:]
 			} else {
-				z := append(y[2*frameSize-frameSize/2:], y[:frameSize/2]...)
-				out <- z
+				// z := append(y[2*frameSize-frameSize/2:], y[:frameSize/2]...)
+				// out <- z
 				out <- y[:frameSize]
 			}
 
