@@ -73,7 +73,7 @@ func NewDisplay(cfg *Config) *Display {
 func (d *Display) Process(done chan struct{}, in chan []float64, render chan struct{}) chan *image.RGBA {
 
 	x := <-in
-	bucketer := util.NewBucketer(util.MelScale, d.Buckets, len(x), 32, 16000)
+	bucketer := util.NewBucketer(util.LogScale, d.Buckets, len(x), 32, 16000)
 	buckets := util.NewBucketProcessor(bucketer).Process(done, in)
 
 	out := make(chan *image.RGBA)
@@ -90,6 +90,10 @@ func (d *Display) Process(done chan struct{}, in chan []float64, render chan str
 			}
 
 			x = <-buckets
+			if x == nil {
+				return
+			}
+
 			d.applyFilters(x)
 			d.applyChannelEffects()
 			d.applyChannelSync()

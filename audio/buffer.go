@@ -11,7 +11,7 @@ func Buffer(done chan struct{}, in <-chan []float32) chan []float64 {
 	frameSize := len(x)
 
 	go func() {
-		defer close(done)
+		defer close(out)
 		y := make([]float64, frameSize*2)
 		bufferIndex := 0
 		for {
@@ -21,6 +21,9 @@ func Buffer(done chan struct{}, in <-chan []float32) chan []float64 {
 			default:
 			}
 			x = <-in
+			if x == nil {
+				return
+			}
 
 			offset := bufferIndex * frameSize
 			for i := range x {

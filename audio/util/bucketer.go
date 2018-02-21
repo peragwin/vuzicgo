@@ -139,6 +139,9 @@ func (b *BucketProcessor) Process(done chan struct{}, in chan []float64) chan []
 			default:
 			}
 			x := <-in
+			if x == nil {
+				return
+			}
 			out <- b.Bucketer.Bucket(x)
 		}
 	}()

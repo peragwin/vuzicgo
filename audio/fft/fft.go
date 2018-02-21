@@ -27,7 +27,6 @@ func NewFFTProcessor(sampleRate float64, size int) *FFTProcessor {
 func (f *FFTProcessor) Process(done chan struct{}, in chan []float64) chan []complex128 {
 
 	out := make(chan []complex128)
-	//errc := make(chan error)
 
 	go func() {
 		defer close(out)
@@ -39,6 +38,10 @@ func (f *FFTProcessor) Process(done chan struct{}, in chan []float64) chan []com
 			}
 
 			fx := <-in
+			if fx == nil {
+				return
+			}
+
 			window.Apply(fx, window.Hamming)
 			out <- fft.FFTReal(fx)[:len(fx)/2]
 		}
@@ -64,6 +67,10 @@ func (p *PowerSpectrumProcessor) Process(done chan struct{}, in chan []complex12
 			}
 
 			Fx := <-in
+			if Fx == nil {
+				return
+			}
+
 			Px := make([]float64, len(Fx))
 			N := float64(len(Px))
 
@@ -99,6 +106,9 @@ func SpectrumProcessor(done chan struct{}, in <-chan []float32, size int) chan [
 			}
 
 			x = <-in
+			if x == nil {
+				return
+			}
 			for i := range x {
 				fx[i] = float64(x[i])
 			}

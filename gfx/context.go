@@ -44,6 +44,7 @@ func NewContext(done chan struct{},
 		if err != nil {
 			return nil, err
 		}
+		gl.Flush()
 	}
 
 	version := gl.GoStr(gl.GetString(gl.VERSION))
