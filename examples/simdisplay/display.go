@@ -5,6 +5,8 @@ import (
 	"image/color"
 	"math"
 
+	"github.com/lucasb-eyer/go-colorful"
+
 	"github.com/peragwin/vuzicgo/audio/util"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
@@ -217,8 +219,7 @@ func (d *Display) render() {
 }
 
 func (d *Display) renderColumn(col int) []color.RGBA {
-	br := d.params.Brightness
-	gbr := d.params.GlobalBrightness
+
 	amp := d.drivers.amplitude[0]
 	if d.params.Mode == AnimateMode {
 		amp = d.drivers.amplitude[col]
@@ -230,26 +231,50 @@ func (d *Display) renderColumn(col int) []color.RGBA {
 	colors := make([]color.RGBA, d.Buckets)
 
 	for i, ph := range phase {
-		r := math.Sin(ph + phi)
-		g := math.Sin(ph + phi + 2*math.Pi/3)
-		b := math.Sin(ph + phi - 2*math.Pi/3)
-
-		// TODO print norm and see if it's contant to optimize
-		norm := math.Abs(r) + math.Abs(g) + math.Abs(b)
-		r /= norm
-		g /= norm
-		b /= norm
-
-		r = gbr / br * (br + amp[i]*r)
-		g = gbr / br * (br + amp[i]*g)
-		b = gbr / br * (br + amp[i]*b)
-
-		r = math.Max(0, math.Min(255, r))
-		g = math.Max(0, math.Min(255, g))
-		b = math.Max(0, math.Min(255, b))
-
-		colors[i] = color.RGBA{uint8(r), uint8(g), uint8(b), 255}
+		//colors[i] = getRGB(d.params, amp[i], ph, phi)
+		colors[i] = getHSV(d.params, amp[i], ph, phi)
 	}
 
 	return colors
+}
+
+func getHSV(params *Parameters, amp, ph, phi float64) color.RGBA {
+	br := params.Brightness
+	gbr := params.GlobalBrightness
+
+	hue := math.Mod((ph+phi)*180/math.Pi, 360)
+	if hue < 0 {
+		hue += 360
+	}
+	sat := sigmoid(br * amp)
+	val := sigmoid(gbr / 255 * (1 + amp))
+
+	r, g, b := colorful.Hsv(hue, sat, val).RGB255()
+	return color.RGBA{r, g, b, 255}
+}
+
+func getRGB(params *Parameters, amp, ph, phi float64) color.RGBA {
+	br := params.Brightness
+	gbr := params.GlobalBrightness
+
+	r := math.Sin(ph + phi)
+	g := math.Sin(ph + phi + 2*math.Pi/3)
+	b := math.Sin(ph + phi - 2*math.Pi/3)
+
+	// TODO print norm and see if it's contant to optimize
+	norm := math.Abs(r) + math.Abs(g) + math.Abs(b)
+	r /= norm
+	g /= norm
+	b /= norm
+
+	r = gbr * (1 + br*amp*r)
+	g = gbr * (1 + br*amp*g)
+	b = gbr * (1 + br*amp*b)
+	// WAS b = gbr / br * (br + amp*b)
+
+	r = math.Max(0, math.Min(255, r))
+	g = math.Max(0, math.Min(255, g))
+	b = math.Max(0, math.Min(255, b))
+
+	return color.RGBA{uint8(r), uint8(g), uint8(b), 255}
 }
