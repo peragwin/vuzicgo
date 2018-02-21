@@ -26,14 +26,26 @@ type Context struct {
 func NewContext(done chan struct{},
 	windowConfig *WindowConfig, shaderConfigs []*ShaderConfig) (*Context, error) {
 
-	window, err := NewWindow(windowConfig)
-	if err != nil {
-		return nil, err
+	var window *Window
+	var err error
+	if runtime.GOOS == "darwin" {
+		window, err = NewWindow(windowConfig)
+		if err != nil {
+			return nil, err
+		}
+		if err := gl.Init(); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := gl.Init(); err != nil {
+			return nil, err
+		}
+		window, err = NewWindow(windowConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	if err := gl.Init(); err != nil {
-		return nil, err
-	}
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	log.Println("OpenGL version", version)
 
