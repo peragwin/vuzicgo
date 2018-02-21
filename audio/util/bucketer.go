@@ -111,7 +111,7 @@ func (b *Bucketer) Bucket(frame []float64) []float64 {
 		for j := start; j < stop; j++ {
 			sum += frame[j]
 		}
-		buckets[i] = sum
+		buckets[i] = sum / float64(stop-start)
 	}
 	return buckets
 }
