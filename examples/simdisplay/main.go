@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"log"
+	"net/http"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
+	"github.com/graphql-go/graphql"
 	"github.com/peragwin/vuzicgo/audio"
 	"github.com/peragwin/vuzicgo/audio/fft"
 	"github.com/peragwin/vuzicgo/gfx/grid"
@@ -78,12 +81,13 @@ func main() {
 
 	defaultParameters.Mode = *mode
 	defaultParameters.Period = 3 * *columns / 2
-	display := NewDisplay(&Config{
+	cfg := NewConfig(&Config{
 		Columns:    *columns,
 		Buckets:    *buckets,
 		SampleRate: sampleRate,
 		Parameters: defaultParameters,
 	})
+	display := NewDisplay(cfg)
 	frames := display.Process(done, specOut, render)
 
 	g.SetRenderFunc(func(g *grid.Grid) {
@@ -91,6 +95,19 @@ func main() {
 		img := <-frames
 		g.SetImage(img)
 	})
+
+	go func() {
+		http.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
+			query := r.URL.Query().Get("query")
+			log.Println(query)
+			res := graphql.Do(graphql.Params{
+				Schema:        cfg.schema,
+				RequestString: query,
+			})
+			json.NewEncoder(w).Encode(res)
+		})
+		http.ListenAndServe(":8080", nil)
+	}()
 
 	<-done
 }
