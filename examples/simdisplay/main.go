@@ -6,6 +6,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"runtime"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/graphql-go/graphql"
@@ -32,6 +33,8 @@ var (
 )
 
 func initGfx(done chan struct{}) *grid.Grid {
+	runtime.LockOSThread()
+
 	g, err := grid.NewGrid(done, &grid.Config{
 		Rows: *buckets, Columns: *columns,
 		Width: *width, Height: *height,
@@ -50,6 +53,7 @@ func main() {
 	render := make(chan struct{})
 	defer close(render)
 	done := make(chan struct{})
+	defer close(done)
 
 	// The graphics have to be the first thing we initialize on macOS; I'm guessing it's
 	// because of the syscall that binds it to the main thread.
@@ -106,8 +110,11 @@ func main() {
 			})
 			json.NewEncoder(w).Encode(res)
 		})
+		// http.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
+
+		// })
 		http.ListenAndServe(":8080", nil)
 	}()
 
-	<-done
+	g.Start()
 }
