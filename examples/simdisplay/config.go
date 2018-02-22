@@ -25,6 +25,8 @@ type Parameters struct {
 	Period           int     `json:"period"`
 	Sync             float64 `json:"sync"`
 	Mode             int     `json:"mode"`
+
+	Debug bool `json:"debug"`
 }
 
 // Config is passed to initialize the module
@@ -48,63 +50,7 @@ func NewConfig(cfg *Config) *Config {
 }
 
 func (c *Config) graphql() (graphql.Schema, error) {
-
-	tagMap := newJSONTagFieldMap(reflect.ValueOf(Parameters{}))
-
-	resolver := func(tag string) func(graphql.ResolveParams) (interface{}, error) {
-		field, ok := tagMap[tag]
-		if !ok {
-			panic("unknown tag: " + tag)
-		}
-		return func(p graphql.ResolveParams) (interface{}, error) {
-			if params, ok := p.Source.(*Parameters); ok {
-				ref := reflect.ValueOf(params).Elem()
-				val := ref.Field(field)
-				return val.Interface(), nil
-			}
-			return nil, fmt.Errorf("something when wrong: %#v", p.Source)
-		}
-	}
-
-	paramType := graphql.NewObject(
-		graphql.ObjectConfig{
-			Name: "ParamType",
-			Fields: graphql.Fields{
-				"gbr": &graphql.Field{
-					Type:    graphql.Float,
-					Resolve: resolver("gbr"),
-				},
-				"br": &graphql.Field{
-					Type:    graphql.Float,
-					Resolve: resolver("br"),
-				},
-				"gain": &graphql.Field{
-					Type:    graphql.Float,
-					Resolve: resolver("gain"),
-				},
-				"diff": &graphql.Field{
-					Type:    graphql.Float,
-					Resolve: resolver("diff"),
-				},
-				"offset": &graphql.Field{
-					Type:    graphql.Float,
-					Resolve: resolver("offset"),
-				},
-				"period": &graphql.Field{
-					Type:    graphql.Int,
-					Resolve: resolver("period"),
-				},
-				"sync": &graphql.Field{
-					Type:    graphql.Float,
-					Resolve: resolver("sync"),
-				},
-				"mode": &graphql.Field{
-					Type:    graphql.Int,
-					Resolve: resolver("mode"),
-				},
-			},
-		},
-	)
+	paramType, mutField := NewGraphqlType("ParamType", c.Parameters)
 
 	rootQuery := graphql.NewObject(
 		graphql.ObjectConfig{
@@ -123,27 +69,7 @@ func (c *Config) graphql() (graphql.Schema, error) {
 		graphql.ObjectConfig{
 			Name: "RootMut",
 			Fields: graphql.Fields{
-				"params": &graphql.Field{
-					Type: graphql.Float,
-					Args: graphql.FieldConfigArgument{
-						"gbr":    &graphql.ArgumentConfig{Type: graphql.Float},
-						"br":     &graphql.ArgumentConfig{Type: graphql.Float},
-						"gain":   &graphql.ArgumentConfig{Type: graphql.Float},
-						"diff":   &graphql.ArgumentConfig{Type: graphql.Float},
-						"offset": &graphql.ArgumentConfig{Type: graphql.Float},
-						"period": &graphql.ArgumentConfig{Type: graphql.Int},
-						"sync":   &graphql.ArgumentConfig{Type: graphql.Float},
-						"mode":   &graphql.ArgumentConfig{Type: graphql.Int},
-					},
-					Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-						for arg, val := range p.Args {
-							field := tagMap[arg]
-							ref := reflect.ValueOf(c.Parameters).Elem()
-							ref.Field(field).Set(reflect.ValueOf(val))
-						}
-						return nil, nil
-					},
-				},
+				"params": mutField,
 			},
 		},
 	)
@@ -162,8 +88,83 @@ func (c *Config) query(query string) *graphql.Result {
 	})
 }
 
+// NewGraphqlType expects a pointer type for val
+func NewGraphqlType(name string, val interface{}) (*graphql.Object, *graphql.Field) {
+	fields := graphql.Fields{}
+	mutArgs := graphql.FieldConfigArgument{}
+
+	elem := reflect.ValueOf(val).Elem()
+	tagMap := newJSONTagFieldMap(elem)
+	ref := elem.Type()
+
+	resolver := func(tag string) func(graphql.ResolveParams) (interface{}, error) {
+		field, ok := tagMap[tag]
+		if !ok {
+			panic("unknown tag: " + tag)
+		}
+		return func(p graphql.ResolveParams) (interface{}, error) {
+			if params, ok := p.Source.(*Parameters); ok {
+				ref := reflect.ValueOf(params).Elem()
+				val := ref.Field(field)
+				return val.Interface(), nil
+			}
+			return nil, fmt.Errorf("something when wrong: %#v", p.Source)
+		}
+	}
+
+	for tag, i := range tagMap {
+		if tag == "" {
+			continue
+		}
+		f := ref.Field(i)
+		var typ graphql.Type
+		switch f.Type.Kind() {
+		case reflect.Bool:
+			typ = graphql.Boolean
+		case reflect.Float32, reflect.Float64:
+			typ = graphql.Float
+		case reflect.String:
+			typ = graphql.String
+		case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64:
+			typ = graphql.Int
+		default:
+			panic(fmt.Sprint("unsupported type", f.Type))
+		}
+		fields[tag] = &graphql.Field{Type: typ, Resolve: resolver(tag)}
+		mutArgs[tag] = &graphql.ArgumentConfig{Type: typ}
+	}
+
+	return graphql.NewObject(
+			graphql.ObjectConfig{
+				Name:   name,
+				Fields: fields,
+			},
+		),
+		&graphql.Field{
+			Type: graphql.Boolean,
+			Args: mutArgs,
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				for arg, val := range p.Args {
+					field := tagMap[arg]
+					//ref := reflect.ValueOf(c.Parameters).Elem()
+					elem.Field(field).Set(reflect.ValueOf(val))
+				}
+				return true, nil
+			},
+		}
+}
+
+// NewGraphqlMutationFields expects a pointer type
+// func NewGraphqlMutationField(val interface{}) *graphql.Field {
+// 	return nil
+// }
+
 func getJSONTag(ref reflect.Value, i int) string {
 	f := ref.Type().Field(i)
+	return jsonTag(&f)
+}
+
+func jsonTag(f *reflect.StructField) string {
 	t := f.Tag.Get("json")
 	return strings.Split(t, ",")[0]
 }

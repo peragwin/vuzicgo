@@ -69,3 +69,8 @@ func TestGraphql(t *testing.T) {
 		t.Fatal("sync not as expected after mut")
 	}
 }
+
+func TestNewFields(t *testing.T) {
+	typ, mut := NewGraphqlType("params", Parameters{})
+	t.Fatal(typ, mut)
+}
