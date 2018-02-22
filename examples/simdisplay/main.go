@@ -91,8 +91,17 @@ func main() {
 		SampleRate: sampleRate,
 		Parameters: defaultParameters,
 	})
-	display := NewDisplay(cfg)
-	frames := display.Process(done, specOut, render)
+	fs := NewFrequencySensor(cfg)
+	fsOut := fs.Process(done, specOut)
+	// this output isn't needed here so throw it away
+	go func() {
+		for {
+			<-fsOut
+		}
+	}()
+
+	rndr := newRenderer(*columns, defaultParameters, fs)
+	frames := rndr.Render(done, render)
 
 	g.SetRenderFunc(func(g *grid.Grid) {
 		render <- struct{}{}
