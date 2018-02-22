@@ -99,9 +99,10 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 		return nil, err
 	}
 	// XXX needed?
-	//gl.BindFragDataLocation(g.Program.ProgramID, 0, gl.Str("frag_color\x00"))
+	gl.BindFragDataLocation(g.Program.ProgramID, 0, gl.Str("frag_color\x00"))
 
 	img := image.NewRGBA(image.Rect(0, 0, cfg.Columns, cfg.Rows))
+	//fmt.Println(cfg.Columns, cfg.Rows)
 	//img := image.NewRGBA(image.Rect(0, 0, 16, 16))
 	for i := 0; i < cfg.Columns; i++ {
 		for j := 0; j < cfg.Rows; j++ {
@@ -135,18 +136,18 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 		return nil, err
 	}
 
-	go func() {
-		defer g.Terminate()
-		defer close(done)
-
-		g.EventLoop(func(g *gfx.Context) {
-			if grid.render != nil {
-				grid.render(grid)
-			}
-		})
-	}()
-
 	return grid, nil
+}
+
+// Start initiates the graphics event loop
+func (g *Grid) Start() {
+	defer g.Gfx.Terminate()
+
+	g.Gfx.EventLoop(func(_ *gfx.Context) {
+		if g.render != nil {
+			g.render(g)
+		}
+	})
 }
 
 // SetColor sets a cell in the grid to a color
