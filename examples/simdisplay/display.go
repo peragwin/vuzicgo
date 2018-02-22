@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
+	"time"
 
 	"github.com/lucasb-eyer/go-colorful"
 
@@ -188,13 +190,23 @@ func (d *Display) applyChannelEffects() {
 	}
 	for i := range diff {
 		ph := d.drivers.phase[i] + .001 // apply a constant opposing pressure
-		ph -= dg * math.Log(1+math.Abs(diff[i]))
+		ph -= dg * math.Abs(diff[i])
 		d.drivers.phase[i] = ph
 	}
 }
 
 func (d *Display) applyChannelSync() {
 	avg := floats.Sum(d.drivers.phase) / float64(d.Buckets)
+	if avg < -2*math.Pi {
+		for i := range d.drivers.phase {
+			d.drivers.phase[i] += 2 * math.Pi
+		}
+	}
+	if avg > 2*math.Pi {
+		for i := range d.drivers.phase {
+			d.drivers.phase[i] -= 2 * math.Pi
+		}
+	}
 	for i, ph := range d.drivers.phase {
 		diff := avg - d.drivers.phase[i]
 		sign := math.Signbit(diff)
@@ -207,7 +219,18 @@ func (d *Display) applyChannelSync() {
 	}
 }
 
+var renderCount = 0
+var lastRender time.Time
+
 func (d *Display) render() {
+	renderCount++
+	if d.params.Debug && renderCount%100 == 0 {
+		diff := time.Now().Sub(lastRender)
+		fmt.Println("fps:", diff/100.0)
+		fmt.Println("amp:", d.drivers.amplitude[0])
+		fmt.Println("pha:", d.drivers.phase)
+		lastRender = time.Now()
+	}
 	hl := d.Columns / 2
 	for i := 0; i < hl; i++ {
 		col := d.renderColumn(i)
