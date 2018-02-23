@@ -12,6 +12,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/peragwin/vuzicgo/audio"
 	"github.com/peragwin/vuzicgo/audio/fft"
+	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
 	"github.com/peragwin/vuzicgo/gfx/grid"
 )
 
@@ -29,7 +30,7 @@ var (
 	buckets = flag.Int("buckets", 64, "number of frequency buckets")
 	columns = flag.Int("columns", 16, "number of cells per row")
 
-	mode = flag.Int("mode", NormalMode, "which mode: 0=Normal, 1=Animate")
+	mode = flag.Int("mode", fs.NormalMode, "which mode: 0=Normal, 1=Animate")
 )
 
 func initGfx(done chan struct{}) *grid.Grid {
@@ -83,16 +84,16 @@ func main() {
 	specProc := new(fft.PowerSpectrumProcessor)
 	specOut := specProc.Process(done, fftOut)
 
-	defaultParameters.Mode = *mode
-	defaultParameters.Period = 3 * *columns / 2
-	cfg := NewConfig(&Config{
+	fs.DefaultParameters.Mode = *mode
+	fs.DefaultParameters.Period = 3 * *columns / 2
+	cfg := fs.NewConfig(&fs.Config{
 		Columns:    *columns,
 		Buckets:    *buckets,
 		SampleRate: sampleRate,
-		Parameters: defaultParameters,
+		Parameters: fs.DefaultParameters,
 	})
-	fs := NewFrequencySensor(cfg)
-	fsOut := fs.Process(done, specOut)
+	f := fs.NewFrequencySensor(cfg)
+	fsOut := f.Process(done, specOut)
 	// this output isn't needed here so throw it away
 	go func() {
 		for {
@@ -100,7 +101,7 @@ func main() {
 		}
 	}()
 
-	rndr := newRenderer(*columns, defaultParameters, fs)
+	rndr := newRenderer(*columns, fs.DefaultParameters, f)
 	frames := rndr.Render(done, render)
 
 	g.SetRenderFunc(func(g *grid.Grid) {
@@ -114,7 +115,7 @@ func main() {
 			query := r.URL.Query().Get("query")
 			log.Println(query)
 			res := graphql.Do(graphql.Params{
-				Schema:        cfg.schema,
+				Schema:        cfg.Schema,
 				RequestString: query,
 			})
 			json.NewEncoder(w).Encode(res)

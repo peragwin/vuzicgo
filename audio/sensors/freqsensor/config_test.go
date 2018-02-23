@@ -1,4 +1,4 @@
-package main
+package freqsensor
 
 import (
 	"encoding/json"
@@ -7,10 +7,10 @@ import (
 
 func TestGraphql(t *testing.T) {
 	c := &Config{
-		Parameters: defaultParameters,
+		Parameters: DefaultParameters,
 	}
 	var err error
-	c.schema, err = c.graphql()
+	c.Schema, err = c.graphql()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestGraphql(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if data.Data.Params.GlobalBrightness != defaultParameters.GlobalBrightness {
+	if data.Data.Params.GlobalBrightness != DefaultParameters.GlobalBrightness {
 		t.Log(string(bs))
 		t.Fatal("res value not as expected")
 	}

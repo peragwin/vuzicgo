@@ -1,4 +1,4 @@
-package main
+package freqsensor
 
 import (
 	"math/rand"
@@ -25,10 +25,10 @@ var testFilterParams = filterValues{
 
 func TestFilter(t *testing.T) {
 	//drivers := newDrivers(1)
-	newDisplay := func() *Display {
-		return &Display{
+	newDisplay := func() *FrequencySensor {
+		return &FrequencySensor{
 			Buckets: 1,
-			params:  defaultParameters,
+			params:  DefaultParameters,
 			//drivers:      drivers,
 			filterParams: testFilterParams,
 			filterValues: filterValues{

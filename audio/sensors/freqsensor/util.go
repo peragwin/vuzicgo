@@ -1,4 +1,4 @@
-package main
+package freqsensor
 
 import (
 	"math"
@@ -63,12 +63,12 @@ func (v *variableGainController) apply(input []float64) {
 	}
 }
 
-func sigmoid(x float64) float64 {
+func Sigmoid(x float64) float64 {
 	return 1 / (1 + math.Exp(-x))
 }
 
 func sigmoidCurve(x float64) float64 {
-	return 2*sigmoid(x) - 1
+	return 2*Sigmoid(x) - 1
 }
 
 func customCurve(x float64) float64 {

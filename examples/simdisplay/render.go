@@ -8,13 +8,14 @@ import (
 	"time"
 
 	colorful "github.com/lucasb-eyer/go-colorful"
+	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
 )
 
 type renderer struct {
-	src     *FrequencySensor
+	src     *fs.FrequencySensor
 	columns int
 	rows    int
-	params  *Parameters
+	params  *fs.Parameters
 
 	renderCount int
 	lastRender  time.Time
@@ -22,13 +23,13 @@ type renderer struct {
 	display *image.RGBA
 }
 
-func newRenderer(columns int, params *Parameters, fs *FrequencySensor) *renderer {
-	display := image.NewRGBA(image.Rect(0, 0, columns, fs.Buckets))
+func newRenderer(columns int, params *fs.Parameters, src *fs.FrequencySensor) *renderer {
+	display := image.NewRGBA(image.Rect(0, 0, columns, src.Buckets))
 	return &renderer{
 		params:  params,
 		columns: columns,
-		rows:    fs.Buckets,
-		src:     fs,
+		rows:    src.Buckets,
+		src:     src,
 		display: display,
 	}
 }
@@ -74,7 +75,7 @@ func (r *renderer) render() {
 func (r *renderer) renderColumn(col int) []color.RGBA {
 
 	amp := r.src.Amplitude[0]
-	if r.params.Mode == AnimateMode {
+	if r.params.Mode == fs.AnimateMode {
 		amp = r.src.Amplitude[col]
 	}
 	phase := r.src.Energy
@@ -91,7 +92,7 @@ func (r *renderer) renderColumn(col int) []color.RGBA {
 	return colors
 }
 
-func getHSV(params *Parameters, amp, ph, phi float64) color.RGBA {
+func getHSV(params *fs.Parameters, amp, ph, phi float64) color.RGBA {
 	br := params.Brightness
 	gbr := params.GlobalBrightness
 
@@ -99,14 +100,14 @@ func getHSV(params *Parameters, amp, ph, phi float64) color.RGBA {
 	if hue < 0 {
 		hue += 360
 	}
-	sat := sigmoid(br * amp)
-	val := sigmoid(gbr / 255 * (1 + amp))
+	sat := fs.Sigmoid(br * amp)
+	val := fs.Sigmoid(gbr / 255 * (1 + amp))
 
 	r, g, b := colorful.Hsv(hue, sat, val).RGB255()
 	return color.RGBA{r, g, b, 255}
 }
 
-func getRGB(params *Parameters, amp, ph, phi float64) color.RGBA {
+func getRGB(params *fs.Parameters, amp, ph, phi float64) color.RGBA {
 	br := params.Brightness
 	gbr := params.GlobalBrightness
 

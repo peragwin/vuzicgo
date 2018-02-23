@@ -1,4 +1,4 @@
-package main
+package freqsensor
 
 import (
 	"fmt"
@@ -36,13 +36,13 @@ type Config struct {
 	SampleRate float64
 	Parameters *Parameters
 
-	schema graphql.Schema
+	Schema graphql.Schema
 }
 
 // NewConfig inits a config with a corresponding graphql schema
 func NewConfig(cfg *Config) *Config {
 	var err error
-	cfg.schema, err = cfg.graphql()
+	cfg.Schema, err = cfg.graphql()
 	if err != nil {
 		panic(err)
 	}
@@ -83,7 +83,7 @@ func (c *Config) graphql() (graphql.Schema, error) {
 
 func (c *Config) query(query string) *graphql.Result {
 	return graphql.Do(graphql.Params{
-		Schema:        c.schema,
+		Schema:        c.Schema,
 		RequestString: query,
 	})
 }

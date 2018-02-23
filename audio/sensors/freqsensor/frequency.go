@@ -1,4 +1,4 @@
-package main
+package freqsensor
 
 import (
 	"math"
@@ -21,8 +21,8 @@ var (
 	}
 	defaultVGCParams = []float64{0.05, 0.95}
 
-	// defaultParameters is a set of default parameters that work okay
-	defaultParameters = &Parameters{
+	// DefaultParameters is a set of default parameters that work okay
+	DefaultParameters = &Parameters{
 		GlobalBrightness: 127, // center around 50% brightness
 		Brightness:       2,
 		Offset:           1,
