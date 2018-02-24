@@ -1,6 +1,8 @@
 package freqsensor
 
 import (
+	"encoding/json"
+	"fmt"
 	"math"
 
 	"github.com/peragwin/vuzicgo/audio/util"
@@ -19,7 +21,7 @@ var (
 			-0.04, 0.96,
 		}),
 	}
-	defaultVGCParams = []float64{0.05, 0.95}
+	defaultVGCParams = []float64{0.005, 0.995}
 
 	// DefaultParameters is a set of default parameters that work okay
 	DefaultParameters = &Parameters{
@@ -52,6 +54,8 @@ type FrequencySensor struct {
 	filterParams filterValues
 	filterValues filterValues
 	vgc          *variableGainController
+
+	frameCount int
 }
 
 // NewFrequencySensor creates a new FrequencySensor from a Config
@@ -106,6 +110,8 @@ func (d *FrequencySensor) Process(done chan struct{}, in chan []float64) chan *D
 			d.applyFilters(x)
 			d.applyChannelEffects()
 			d.applyChannelSync()
+
+			d.frameCount++
 
 			out <- &d.Drivers
 		}
@@ -163,6 +169,10 @@ func (d *FrequencySensor) applyFilter(frame []float64, output, fp, di *mat.Dense
 // filter whose output will be the gain of the 1st level filter for the next incoming frame.
 func (d *FrequencySensor) adjustVariableGain(frame []float64) {
 	d.vgc.apply(frame)
+	if d.params.Debug && d.frameCount%200 == 0 {
+		bs, _ := json.Marshal(map[string]interface{}{"vgc.gain": d.vgc.gain})
+		fmt.Println(string(bs))
+	}
 }
 
 func (d *FrequencySensor) applyChannelEffects() {
@@ -198,11 +208,13 @@ func (d *FrequencySensor) applyChannelSync() {
 		for i := range d.Energy {
 			d.Energy[i] += 2 * math.Pi
 		}
+		avg += 2 * math.Pi
 	}
 	if avg > 2*math.Pi {
 		for i := range d.Energy {
 			d.Energy[i] -= 2 * math.Pi
 		}
+		avg -= 2 * math.Pi
 	}
 	for i, ph := range d.Energy {
 		diff := avg - d.Energy[i]

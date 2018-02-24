@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
@@ -57,9 +58,13 @@ func (r *renderer) render() {
 	r.renderCount++
 	if r.params.Debug && r.renderCount%100 == 0 {
 		diff := time.Now().Sub(r.lastRender)
-		fmt.Println("fps:", diff/100.0)
-		fmt.Println("amp:", r.src.Amplitude[0])
-		fmt.Println("pha:", r.src.Energy)
+		m := map[string]interface{}{
+			"fps": diff / 100.0,
+			"amp": r.src.Amplitude[0],
+			"pha": r.src.Energy,
+		}
+		bs, _ := json.Marshal(m)
+		fmt.Println(string(bs))
 		r.lastRender = time.Now()
 	}
 	hl := r.columns / 2
