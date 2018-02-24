@@ -13,7 +13,7 @@ import (
 	"github.com/peragwin/vuzicgo/audio"
 	"github.com/peragwin/vuzicgo/audio/fft"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
-	"github.com/peragwin/vuzicgo/gfx/grid"
+	"github.com/peragwin/vuzicgo/gfx/warpgrid"
 )
 
 const (
@@ -33,10 +33,10 @@ var (
 	mode = flag.Int("mode", fs.NormalMode, "which mode: 0=Normal, 1=Animate")
 )
 
-func initGfx(done chan struct{}) *grid.Grid {
+func initGfx(done chan struct{}) *warpgrid.Grid {
 	runtime.LockOSThread()
 
-	g, err := grid.NewGrid(done, &grid.Config{
+	g, err := warpgrid.NewGrid(done, &warpgrid.Config{
 		Rows: *buckets, Columns: *columns,
 		Width: *width, Height: *height,
 		Title:       "Sim LED Display",
@@ -104,10 +104,13 @@ func main() {
 	rndr := newRenderer(*columns, fs.DefaultParameters, f)
 	frames := rndr.Render(done, render)
 
-	g.SetRenderFunc(func(g *grid.Grid) {
+	g.SetRenderFunc(func(g *warpgrid.Grid) {
 		render <- struct{}{}
-		img := <-frames
-		g.SetImage(img)
+		rv := <-frames
+		g.SetImage(rv.img)
+		for i, w := range rv.warp {
+			g.SetWarp(i, w)
+		}
 	})
 
 	go func() {

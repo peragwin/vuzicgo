@@ -22,6 +22,7 @@ type renderer struct {
 	lastRender  time.Time
 
 	display *image.RGBA
+	warp    []float32
 }
 
 func newRenderer(columns int, params *fs.Parameters, src *fs.FrequencySensor) *renderer {
@@ -32,11 +33,17 @@ func newRenderer(columns int, params *fs.Parameters, src *fs.FrequencySensor) *r
 		rows:    src.Buckets,
 		src:     src,
 		display: display,
+		warp:    make([]float32, src.Buckets),
 	}
 }
 
-func (r *renderer) Render(done, request chan struct{}) chan *image.RGBA {
-	out := make(chan *image.RGBA)
+type renderValues struct {
+	img  *image.RGBA
+	warp []float32
+}
+
+func (r *renderer) Render(done, request chan struct{}) chan *renderValues {
+	out := make(chan *renderValues)
 
 	// set up a goroutine to render a frame only when requested
 	go func() {
@@ -46,7 +53,10 @@ func (r *renderer) Render(done, request chan struct{}) chan *image.RGBA {
 				return
 			case <-request:
 				r.render()
-				out <- r.display
+				out <- &renderValues{
+					r.display,
+					r.warp,
+				}
 			}
 		}
 	}()
@@ -59,9 +69,10 @@ func (r *renderer) render() {
 	if r.params.Debug && r.renderCount%100 == 0 {
 		diff := time.Now().Sub(r.lastRender)
 		m := map[string]interface{}{
-			"fps": diff / 100.0,
-			"amp": r.src.Amplitude[0],
-			"pha": r.src.Energy,
+			"fps":  diff / 100.0,
+			"amp":  r.src.Amplitude[0],
+			"pha":  r.src.Energy,
+			"diff": r.src.Diff,
 		}
 		bs, _ := json.Marshal(m)
 		fmt.Println(string(bs))
@@ -74,6 +85,9 @@ func (r *renderer) render() {
 			r.display.SetRGBA(hl+i, r.rows-j-1, c)
 			r.display.SetRGBA(hl-1-i, r.rows-j-1, c)
 		}
+	}
+	for i, d := range r.src.Diff {
+		r.warp[i] = float32(0.5 + math.Abs(d))
 	}
 }
 

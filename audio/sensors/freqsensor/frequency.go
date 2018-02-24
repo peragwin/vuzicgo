@@ -39,7 +39,9 @@ var (
 type Drivers struct {
 	// Amplitude is the immediate amplitudes of the frequency response for each frame
 	Amplitude [][]float64
-	// Energy is the overall accumulated energies
+	// Diff is how much the frame chanced since the last input
+	Diff []float64
+	// Energy is the abs overall accumulated differential
 	Energy []float64
 }
 
@@ -71,6 +73,7 @@ func NewFrequencySensor(cfg *Config) *FrequencySensor {
 		Drivers: Drivers{
 			Amplitude: amp,
 			Energy:    make([]float64, cfg.Buckets),
+			Diff:      make([]float64, cfg.Buckets),
 		},
 		params:       cfg.Parameters,
 		filterParams: defaultFilterParams,
@@ -196,6 +199,8 @@ func (d *FrequencySensor) applyChannelEffects() {
 		d.Amplitude[0][i] = ao + ag*gain[i]
 	}
 	for i := range diff {
+		d.Diff[i] = diff[i]
+
 		ph := d.Energy[i] + .001 // apply a constant opposing pressure
 		ph -= dg * math.Abs(diff[i])
 		d.Energy[i] = ph
