@@ -1,6 +1,7 @@
 package freqsensor
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -38,22 +39,65 @@ type Config struct {
 	Columns    int
 	SampleRate float64
 	Parameters *Parameters
-
-	Schema graphql.Schema
 }
 
-// NewConfig inits a config with a corresponding graphql schema
-func NewConfig(cfg *Config) *Config {
-	var err error
-	cfg.Schema, err = cfg.graphql()
-	if err != nil {
-		panic(err)
+func (d *FrequencySensor) initGraphql() error {
+	paramType, paramMut := NewGraphqlType("ParamType", d.params)
+
+	filterType := graphql.NewObject(
+		graphql.ObjectConfig{
+			Name: "FilterType",
+			Fields: graphql.Fields{
+				"amp": &graphql.Field{
+					Type: graphql.NewList(graphql.Float),
+					Resolve: func(graphql.ResolveParams) (interface{}, error) {
+						return d.filterParams.gain.RawMatrix().Data, nil
+					},
+				},
+				"diff": &graphql.Field{
+					Type: graphql.NewList(graphql.Float),
+					Resolve: func(graphql.ResolveParams) (interface{}, error) {
+						return d.filterParams.diff.RawMatrix().Data, nil
+					},
+				},
+			},
+		},
+	)
+	filterMut := &graphql.Field{
+		Type: graphql.Boolean,
+		Args: graphql.FieldConfigArgument{
+			"type":  &graphql.ArgumentConfig{Type: graphql.String},
+			"level": &graphql.ArgumentConfig{Type: graphql.Int},
+			"gain":  &graphql.ArgumentConfig{Type: graphql.Float},
+			"tao":   &graphql.ArgumentConfig{Type: graphql.Float},
+		},
+		Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+			typ, ok := p.Args["type"]
+			if !ok {
+				return nil, errors.New("missing arg: type")
+			}
+			level, ok := p.Args["level"]
+			if !ok {
+				return nil, errors.New("missing arg: level")
+			}
+			var gain float64
+			igain, ok := p.Args["gain"]
+			if ok {
+				gain = igain.(float64)
+			} else {
+				gain = 1
+			}
+			tao, ok := p.Args["tao"]
+			if !ok {
+				return nil, errors.New("missing arg: tao")
+			}
+			if err := d.SetFilterParams(
+				typ.(string), level.(int), gain, tao.(float64)); err != nil {
+				return false, err
+			}
+			return true, nil
+		},
 	}
-	return cfg
-}
-
-func (c *Config) graphql() (graphql.Schema, error) {
-	paramType, mutField := NewGraphqlType("ParamType", c.Parameters)
 
 	rootQuery := graphql.NewObject(
 		graphql.ObjectConfig{
@@ -62,7 +106,13 @@ func (c *Config) graphql() (graphql.Schema, error) {
 				"params": &graphql.Field{
 					Type: paramType,
 					Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-						return c.Parameters, nil
+						return d.params, nil
+					},
+				},
+				"filter": &graphql.Field{
+					Type: filterType,
+					Resolve: func(graphql.ResolveParams) (interface{}, error) {
+						return d.filterValues, nil
 					},
 				},
 			},
@@ -72,21 +122,27 @@ func (c *Config) graphql() (graphql.Schema, error) {
 		graphql.ObjectConfig{
 			Name: "RootMut",
 			Fields: graphql.Fields{
-				"params": mutField,
+				"params": paramMut,
+				"filter": filterMut,
 			},
 		},
 	)
-	return graphql.NewSchema(
+	schema, err := graphql.NewSchema(
 		graphql.SchemaConfig{
 			Query:    rootQuery,
 			Mutation: rootMut,
 		},
 	)
+	if err != nil {
+		return err
+	}
+	d.schema = schema
+	return nil
 }
 
-func (c *Config) query(query string) *graphql.Result {
+func (d *FrequencySensor) Query(query string) *graphql.Result {
 	return graphql.Do(graphql.Params{
-		Schema:        c.Schema,
+		Schema:        d.schema,
 		RequestString: query,
 	})
 }

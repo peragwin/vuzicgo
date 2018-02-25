@@ -2,9 +2,11 @@ package freqsensor
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 
+	"github.com/graphql-go/graphql"
 	"github.com/peragwin/vuzicgo/audio/util"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
@@ -17,21 +19,21 @@ var (
 			-0.005, 0.995,
 		}),
 		diff: mat.NewDense(2, 2, []float64{
-			0.95, +0.10,
-			-0.04, 0.96,
+			0.11, .89,
+			-0.0, 0.0,
 		}),
 	}
 	defaultVGCParams = []float64{0.005, 0.995}
 
 	// DefaultParameters is a set of default parameters that work okay
 	DefaultParameters = &Parameters{
-		GlobalBrightness: 127, // center around 50% brightness
+		GlobalBrightness: 127,
 		Brightness:       2,
 		Offset:           1,
 		Period:           24,
-		Gain:             1,
-		DifferentialGain: 4e-3,
-		Sync:             1.8e-3,
+		Gain:             2,
+		DifferentialGain: 2e-3,
+		Sync:             1e-2,
 		Mode:             AnimateMode,
 		WarpOffset:       0.5,
 		WarpScale:        1.0,
@@ -59,6 +61,8 @@ type FrequencySensor struct {
 	filterValues filterValues
 	vgc          *variableGainController
 
+	schema graphql.Schema
+
 	frameCount int
 }
 
@@ -68,8 +72,7 @@ func NewFrequencySensor(cfg *Config) *FrequencySensor {
 	for i := range amp {
 		amp[i] = make([]float64, cfg.Buckets)
 	}
-
-	return &FrequencySensor{
+	fs := &FrequencySensor{
 		Frames:  cfg.Columns,
 		Buckets: cfg.Buckets,
 		Drivers: Drivers{
@@ -85,6 +88,10 @@ func NewFrequencySensor(cfg *Config) *FrequencySensor {
 		},
 		vgc: newVariableGainController(cfg.Buckets, defaultVGCParams),
 	}
+	if err := fs.initGraphql(); err != nil {
+		panic(err)
+	}
+	return fs
 }
 
 // Process generates the frames of the visualization from input
@@ -123,6 +130,40 @@ func (d *FrequencySensor) Process(done chan struct{}, in chan []float64) chan *D
 	}()
 
 	return out
+}
+
+// tao is a value  >=1 which determines the time constant of the filter. A value of 1 means
+// no lowpass, where a large value means a long time delay.
+func (d *FrequencySensor) SetFilterParams(typ string, level int, gain, tao float64) error {
+	if math.Abs(tao) < 1 {
+		return errors.New("|tao| < 1 undefined")
+	}
+
+	a := 1 / math.Abs(tao)
+	b := 1 - a
+	a *= gain
+	b *= gain
+	if tao < 0 {
+		a = -a
+	}
+	params := []float64{a, b}
+
+	var m *mat.Dense
+	switch typ {
+	case "amp":
+		m = d.filterParams.gain
+	case "diff":
+		m = d.filterParams.diff
+	default:
+		return errors.New("typ must be either 'amp' or 'diff'")
+	}
+	rows, _ := m.Dims()
+	if level >= rows {
+		return errors.New("level not defined for filter typ")
+	}
+
+	m.SetRow(level, params)
+	return nil
 }
 
 func (d *FrequencySensor) applyFilters(frame []float64) {

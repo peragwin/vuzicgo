@@ -9,7 +9,6 @@ import (
 	"runtime"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
-	"github.com/graphql-go/graphql"
 	"github.com/peragwin/vuzicgo/audio"
 	"github.com/peragwin/vuzicgo/audio/fft"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
@@ -86,13 +85,12 @@ func main() {
 
 	fs.DefaultParameters.Mode = *mode
 	fs.DefaultParameters.Period = 3 * *columns / 2
-	cfg := fs.NewConfig(&fs.Config{
+	f := fs.NewFrequencySensor(&fs.Config{
 		Columns:    *columns,
 		Buckets:    *buckets,
 		SampleRate: sampleRate,
 		Parameters: fs.DefaultParameters,
 	})
-	f := fs.NewFrequencySensor(cfg)
 	fsOut := f.Process(done, specOut)
 	// this output isn't needed here so throw it away
 	go func() {
@@ -117,10 +115,7 @@ func main() {
 		http.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
 			query := r.URL.Query().Get("query")
 			log.Println(query)
-			res := graphql.Do(graphql.Params{
-				Schema:        cfg.Schema,
-				RequestString: query,
-			})
+			res := f.Query(query)
 			json.NewEncoder(w).Encode(res)
 		})
 		// http.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
