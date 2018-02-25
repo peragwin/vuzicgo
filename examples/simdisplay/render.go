@@ -87,7 +87,7 @@ func (r *renderer) render() {
 		}
 	}
 	for i, d := range r.src.Diff {
-		r.warp[i] = float32(0.5 + math.Abs(d))
+		r.warp[i] = float32(r.params.WarpOffset + r.params.WarpScale*math.Abs(d))
 	}
 }
 

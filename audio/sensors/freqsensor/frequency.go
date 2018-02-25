@@ -33,6 +33,8 @@ var (
 		DifferentialGain: 4e-3,
 		Sync:             1.8e-3,
 		Mode:             AnimateMode,
+		WarpOffset:       0.5,
+		WarpScale:        1.0,
 	}
 )
 
