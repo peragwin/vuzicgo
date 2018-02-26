@@ -136,7 +136,12 @@ func (d *FrequencySensor) Process(done chan struct{}, in chan []float64) chan *D
 // no lowpass, where a large value means a long time delay.
 func (d *FrequencySensor) SetFilterParams(typ string, level int, gain, tao float64) error {
 	if math.Abs(tao) < 1 {
-		return errors.New("|tao| < 1 undefined")
+		//return errors.New("|tao| < 1 undefined")
+		sign := math.Signbit(tao)
+		tao = 1
+		if sign {
+			tao = -1
+		}
 	}
 
 	a := 1 / math.Abs(tao)

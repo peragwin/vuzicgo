@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"runtime"
@@ -112,15 +113,33 @@ func main() {
 	})
 
 	go func() {
-		http.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
+		http.HandleFunc("/api/v1/graphql", func(w http.ResponseWriter, r *http.Request) {
 			query := r.URL.Query().Get("query")
 			log.Println(query)
-			res := f.Query(query)
+			res := f.Query(query, nil)
 			json.NewEncoder(w).Encode(res)
 		})
-		// http.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
 
-		// })
+		http.HandleFunc("/api/v2/graphql", func(w http.ResponseWriter, r *http.Request) {
+			body, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			apolloQuery := make(map[string]interface{})
+			if err := json.Unmarshal(body, &apolloQuery); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			log.Println(apolloQuery)
+
+			query := apolloQuery["query"].(string)
+			variables := apolloQuery["variables"].(map[string]interface{})
+			res := f.Query(query, variables)
+			json.NewEncoder(w).Encode(res)
+		})
+
 		http.ListenAndServe(":8080", nil)
 	}()
 

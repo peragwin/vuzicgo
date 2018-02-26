@@ -3,6 +3,7 @@ package freqsensor
 import (
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 
@@ -64,7 +65,7 @@ func (d *FrequencySensor) initGraphql() error {
 		},
 	)
 	filterMut := &graphql.Field{
-		Type: graphql.Boolean,
+		Type: graphql.NewList(graphql.Float),
 		Args: graphql.FieldConfigArgument{
 			"type":  &graphql.ArgumentConfig{Type: graphql.String},
 			"level": &graphql.ArgumentConfig{Type: graphql.Int},
@@ -85,7 +86,13 @@ func (d *FrequencySensor) initGraphql() error {
 			if ok {
 				gain = igain.(float64)
 			} else {
-				gain = 1
+				var fp []float64
+				if typ.(string) == "amp" {
+					fp = d.filterParams.gain.RawMatrix().Data
+				} else if typ.(string) == "diff" {
+					fp = d.filterParams.diff.RawMatrix().Data
+				}
+				gain = math.Abs(fp[2*level.(int)]) + math.Abs(fp[2*level.(int)+1])
 			}
 			tao, ok := p.Args["tao"]
 			if !ok {
@@ -93,9 +100,15 @@ func (d *FrequencySensor) initGraphql() error {
 			}
 			if err := d.SetFilterParams(
 				typ.(string), level.(int), gain, tao.(float64)); err != nil {
-				return false, err
+				return nil, err
 			}
-			return true, nil
+			var ret []float64
+			if typ.(string) == "amp" {
+				ret = d.filterParams.gain.RawMatrix().Data
+			} else if typ.(string) == "diff" {
+				ret = d.filterParams.diff.RawMatrix().Data
+			}
+			return ret, nil
 		},
 	}
 
@@ -140,16 +153,18 @@ func (d *FrequencySensor) initGraphql() error {
 	return nil
 }
 
-func (d *FrequencySensor) Query(query string) *graphql.Result {
+func (d *FrequencySensor) Query(query string, vars map[string]interface{}) *graphql.Result {
 	return graphql.Do(graphql.Params{
-		Schema:        d.schema,
-		RequestString: query,
+		Schema:         d.schema,
+		RequestString:  query,
+		VariableValues: vars,
 	})
 }
 
 // NewGraphqlType expects a pointer type for val
 func NewGraphqlType(name string, val interface{}) (*graphql.Object, *graphql.Field) {
 	fields := graphql.Fields{}
+	inputFields := graphql.InputObjectConfigFieldMap{}
 	mutArgs := graphql.FieldConfigArgument{}
 
 	elem := reflect.ValueOf(val).Elem()
@@ -190,27 +205,36 @@ func NewGraphqlType(name string, val interface{}) (*graphql.Object, *graphql.Fie
 			panic(fmt.Sprint("unsupported type", f.Type))
 		}
 		fields[tag] = &graphql.Field{Type: typ, Resolve: resolver(tag)}
+		inputFields[tag] = &graphql.InputObjectFieldConfig{Type: typ}
 		mutArgs[tag] = &graphql.ArgumentConfig{Type: typ}
 	}
 
-	return graphql.NewObject(
-			graphql.ObjectConfig{
-				Name:   name,
-				Fields: fields,
-			},
-		),
-		&graphql.Field{
-			Type: graphql.Boolean,
-			Args: mutArgs,
-			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				for arg, val := range p.Args {
-					field := tagMap[arg]
-					//ref := reflect.ValueOf(c.Parameters).Elem()
-					elem.Field(field).Set(reflect.ValueOf(val))
-				}
-				return true, nil
-			},
-		}
+	paramType := graphql.NewObject(
+		graphql.ObjectConfig{
+			Name:   name,
+			Fields: fields,
+		})
+	inputParamType := graphql.NewInputObject(
+		graphql.InputObjectConfig{
+			Name:   "input" + name,
+			Fields: inputFields,
+		})
+	paramMut := &graphql.Field{
+		Type: paramType,
+		Args: graphql.FieldConfigArgument{
+			"params": &graphql.ArgumentConfig{Type: inputParamType},
+		},
+		Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+			params := p.Args["params"].(map[string]interface{})
+			for arg, val := range params {
+				field := tagMap[arg]
+				elem.Field(field).Set(reflect.ValueOf(val))
+			}
+			return elem.Addr().Interface(), nil
+		},
+	}
+
+	return paramType, paramMut
 }
 
 // NewGraphqlMutationFields expects a pointer type
