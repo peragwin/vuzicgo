@@ -11,8 +11,8 @@ import getMuiTheme from 'material-ui/styles/getMuiTheme';
 import baseTheme from 'material-ui/styles/baseThemes/darkBaseTheme';
 import * as Colors from 'material-ui/styles/colors';
 // import { fade } from 'material-ui/utils/colorManipulator'
-import AppBar from 'material-ui/AppBar';
 
+import AppBar from './AppBar'
 import ParamController from './ParamController'
 import FilterController from './FilterController'
 
@@ -36,10 +36,7 @@ const App = () => (
   <ApolloProvider client={client}>
     <MuiThemeProvider muiTheme={getTheme()}>
       <div>
-        <AppBar
-          title="Vizualization Controller"
-          titleStyle={{color:'#FFF'}}
-        />
+        <AppBar />
         <div style={{margin:'2em'}}>
           <ParamController />
           <FilterController />

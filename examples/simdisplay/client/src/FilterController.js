@@ -6,7 +6,6 @@ import gql from 'graphql-tag';
 import {
     Card, CardHeader, CardText,
 } from 'material-ui/Card'
-import Slider from 'material-ui/Slider'
 import Divider from 'material-ui/Divider';
 import { Snackbar } from 'material-ui';
 import * as Colors from 'material-ui/styles/colors';
@@ -27,7 +26,7 @@ const tao = filterParams => {
 }
 const gain = filterParams => Math.abs(filterParams[0]) + Math.abs(filterParams[1])
 
-const filterQuery = gql`
+export const filterQuery = gql`
   query FilterQuery {
     filter {
       amp
@@ -35,7 +34,7 @@ const filterQuery = gql`
     }
   }`
 
-const filterMut = gql`
+export const filterMut = gql`
   mutation FilterMut ($type: String!, $level: Int!, $gain: Float, $tao: Float!) {
     filter(type: $type, level: $level, gain: $gain, tao: $tao)
   }`

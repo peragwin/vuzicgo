@@ -10,14 +10,17 @@ import (
 )
 
 const (
+	// warp controlls the zoom in the center of the display
+	// scale controlls the vertical scaling factor
 	vertexShaderSource = `
 	#version 410
 	uniform float warp = 1;
+	uniform float scale = 1;
 	in vec3  vertPos;
 	in vec2  texPos;
 	out vec2 fragTexPos;
 	
-	float x;
+	float x, y;
 	void main() {
 		x = vertPos.x;
 		if (x <= 0) {
@@ -25,9 +28,11 @@ const (
 		} else {
 			x = 1 - pow(abs(x - 1), warp);
 		}
+		y = vertPos.y;
+		y = 1 - 2 * pow(1-(y+1)/2, scale);
 
 		fragTexPos = texPos;
-		gl_Position = vec4(x, vertPos.y, vertPos.z, 1.0);
+		gl_Position = vec4(x, y, vertPos.z, 1.0);
 	}`
 
 	fragmenShaderSource = `
@@ -66,6 +71,7 @@ type Grid struct {
 	rows    int
 	columns int
 	warp    []float32
+	scale   float32
 
 	image   *image.RGBA
 	texture *gfx.TextureObject
@@ -98,7 +104,7 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 		&gfx.ShaderConfig{
 			Typ:          gfx.VertexShaderType,
 			Source:       vertexShaderSource,
-			UniformNames: []string{"warp"},
+			UniformNames: []string{"warp", "scale"},
 		},
 		&gfx.ShaderConfig{
 			Typ:            gfx.FragmentShaderType,
@@ -145,7 +151,8 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 		image:   img,
 		render:  cfg.Render,
 
-		warp: warp,
+		warp:  warp,
+		scale: 1.0,
 
 		Gfx:  g,
 		Done: done,
@@ -166,6 +173,8 @@ func (g *Grid) Start() {
 		if g.render != nil {
 			g.render(g)
 		}
+		uloc := fx.GetUniformLocation("scale")
+		gl.Uniform1f(uloc, g.scale)
 		g.drawTexture(fx)
 	})
 }
@@ -268,4 +277,8 @@ func (g *Grid) drawTexture(_ *gfx.Context) {
 
 func (g *Grid) SetWarp(i int, w float32) {
 	g.warp[i] = w
+}
+
+func (g *Grid) SetScale(s float32) {
+	g.scale = s
 }

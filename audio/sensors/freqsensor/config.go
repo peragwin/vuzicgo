@@ -31,6 +31,8 @@ type Parameters struct {
 	WarpOffset float64 `json:"warpOffset"`
 	WarpScale  float64 `json:"warpScale"`
 
+	Scale float64 `json:"scale"`
+
 	Debug bool `json:"debug"`
 }
 

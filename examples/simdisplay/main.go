@@ -107,6 +107,7 @@ func main() {
 		render <- struct{}{}
 		rv := <-frames
 		g.SetImage(rv.img)
+		g.SetScale(rv.scale)
 		for i, w := range rv.warp {
 			g.SetWarp(i, w)
 		}
@@ -137,6 +138,11 @@ func main() {
 			query := apolloQuery["query"].(string)
 			variables := apolloQuery["variables"].(map[string]interface{})
 			res := f.Query(query, variables)
+			if len(res.Errors) > 0 {
+				for _, err := range res.Errors {
+					log.Println("[ERROR]", err)
+				}
+			}
 			json.NewEncoder(w).Encode(res)
 		})
 

@@ -31,7 +31,7 @@ type Parameters struct {
 }
 */
 
-const paramQuery = gql`
+export const paramQuery = gql`
   query ParamQuery {
     params {
       gbr
@@ -43,10 +43,11 @@ const paramQuery = gql`
       sync
       warpScale
       warpOffset
+      scale
     }
   }`
 
-const paramMut = gql`
+export const paramMut = gql`
   mutation ParamMut ($params: inputParamType!) {
     params(params: $params) {
       gbr
@@ -58,6 +59,7 @@ const paramMut = gql`
       sync
       warpScale
       warpOffset
+      scale
     }
   }
 `
@@ -120,6 +122,11 @@ class ParamEditor extends React.PureComponent {
                         min={1} max={256} step={1}
                         value={params.period}
                         onChange={this.setParam('period')}
+                    />
+                    <ParamSlider title="Scale"
+                      min={0.5} max={4}
+                      value={params.scale}
+                      onChange={this.setParam('scale')}
                     />
 
                     <Divider />

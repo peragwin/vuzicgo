@@ -37,6 +37,7 @@ var (
 		Mode:             AnimateMode,
 		WarpOffset:       0.5,
 		WarpScale:        1.0,
+		Scale:            1.0,
 	}
 )
 
