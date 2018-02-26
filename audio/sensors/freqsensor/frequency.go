@@ -19,8 +19,8 @@ var (
 			-0.005, 0.995,
 		}),
 		diff: mat.NewDense(2, 2, []float64{
-			0.11, .89,
-			-0.0, 0.0,
+			0.263, .737,
+			-0.0028, 0.2272,
 		}),
 	}
 	defaultVGCParams = []float64{0.005, 0.995}
@@ -285,17 +285,26 @@ func (d *FrequencySensor) applyChannelSync() {
 	}
 }
 
+var baseFilter = []float64{1, .75, 0.5, 0.25}
+
 func (d *FrequencySensor) applyBase(frame []float64) {
-	cutoff := 4
+	//cutoff := 4
+
 	bass := 0.0
-	for i := 0; i < cutoff; i++ {
-		s := float64(cutoff-i) / float64(cutoff) * frame[i]
-		bass += frame[i] * s
+	for i := range baseFilter {
+		v := frame[i]
+		if v < 0 {
+			v = 0
+		}
+		bass += v * baseFilter[i]
 	}
-	bass /= float64(cutoff) / 2
-	bass = math.Log(1 + bass)
 	if d.params.Debug && d.frameCount%10 == 0 {
 		fmt.Println("@@@ BASE", bass)
 	}
+	bass /= 2
+	bass = math.Log(1 + bass)
+	// if d.params.Debug && d.frameCount%10 == 0 {
+	// 	fmt.Println("@@@ BASE", bass)
+	// }
 	d.Bass = .75*bass + .25*d.Bass
 }
