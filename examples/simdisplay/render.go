@@ -23,6 +23,7 @@ type renderer struct {
 
 	display *image.RGBA
 	warp    []float32
+	scale   float32
 }
 
 func newRenderer(columns int, params *fs.Parameters, src *fs.FrequencySensor) *renderer {
@@ -57,7 +58,7 @@ func (r *renderer) Render(done, request chan struct{}) chan *renderValues {
 				out <- &renderValues{
 					r.display,
 					r.warp,
-					float32(r.params.Scale),
+					r.scale,
 				}
 			}
 		}
@@ -91,6 +92,7 @@ func (r *renderer) render() {
 	for i, d := range r.src.Diff {
 		r.warp[i] = float32(r.params.WarpOffset + r.params.WarpScale*math.Abs(d))
 	}
+	r.scale = float32(1 + r.params.Scale*r.src.Bass)
 }
 
 func (r *renderer) renderColumn(col int) []color.RGBA {

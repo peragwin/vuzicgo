@@ -48,6 +48,8 @@ type Drivers struct {
 	Diff []float64
 	// Energy is the abs overall accumulated differential
 	Energy []float64
+	// Bass keeps track of how intense the current base is
+	Bass float64
 }
 
 // FrequencySensor is the main object that generate the visualization
@@ -123,6 +125,7 @@ func (d *FrequencySensor) Process(done chan struct{}, in chan []float64) chan *D
 			d.applyFilters(x)
 			d.applyChannelEffects()
 			d.applyChannelSync()
+			d.applyBase(d.Diff)
 
 			d.frameCount++
 
@@ -177,12 +180,12 @@ func (d *FrequencySensor) applyFilters(frame []float64) {
 	for i := range frame {
 		frame[i] *= d.vgc.gain[i]
 	}
+
 	d.adjustVariableGain(frame)
 
 	var diffInput = mat.NewDense(2, d.Buckets, nil)
 	d.applyFilter(frame, d.filterValues.gain, d.filterParams.gain, diffInput)
 	d.applyFilter(diffInput.RawRowView(0), d.filterValues.diff, d.filterParams.diff, nil)
-
 }
 
 func (d *FrequencySensor) applyFilter(frame []float64, output, fp, di *mat.Dense) {
@@ -280,4 +283,19 @@ func (d *FrequencySensor) applyChannelSync() {
 		ph += d.params.Sync * diff
 		d.Energy[i] = ph
 	}
+}
+
+func (d *FrequencySensor) applyBase(frame []float64) {
+	cutoff := 4
+	bass := 0.0
+	for i := 0; i < cutoff; i++ {
+		s := float64(cutoff-i) / float64(cutoff) * frame[i]
+		bass += frame[i] * s
+	}
+	bass /= float64(cutoff) / 2
+	bass = math.Log(1 + bass)
+	if d.params.Debug && d.frameCount%10 == 0 {
+		fmt.Println("@@@ BASE", bass)
+	}
+	d.Bass = .75*bass + .25*d.Bass
 }
