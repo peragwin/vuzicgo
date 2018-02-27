@@ -123,7 +123,7 @@ func getHSV(params *fs.Parameters, amp, ph, phi float64) color.RGBA {
 	if hue < 0 {
 		hue += 360
 	}
-	sat := fs.Sigmoid(br * amp)
+	sat := fs.Sigmoid(br - 2 + amp)
 	val := fs.Sigmoid(gbr/255*(1+amp) - 2)
 
 	r, g, b := colorful.Hsv(hue, sat, val).RGB255()

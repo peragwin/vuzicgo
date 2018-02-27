@@ -28,8 +28,8 @@ var (
 	// DefaultParameters is a set of default parameters that work okay
 	DefaultParameters = &Parameters{
 		GlobalBrightness: 127,
-		Brightness:       2,
-		Offset:           1,
+		Brightness:       4,
+		Offset:           0,
 		Period:           24,
 		Gain:             2,
 		DifferentialGain: 2e-3,

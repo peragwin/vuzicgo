@@ -67,7 +67,9 @@ func (v *variableGainController) apply(input []float64) {
 
 	for i := range e {
 		u := v.kp*e[i] + v.kd*(e[i]-v.err[i])
-		v.gain[i] += u
+		if v.gain[i] < 20000 {
+			v.gain[i] += u
+		}
 		//fmt.Println(v.frame.AtVec(i), u, v.gain[i])
 		v.err[i] = e[i]
 	}
