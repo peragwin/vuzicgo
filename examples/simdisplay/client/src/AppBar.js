@@ -12,7 +12,7 @@ import Snackbar from 'material-ui/Snackbar';
 import * as Colors from 'material-ui/styles/colors';
 
 import { paramQuery, paramMut } from './ParamController'
-import { filterQuery } from './FilterController';
+import { filterQuery, rawFilterMut } from './FilterController';
 
 const Menu = props =>
   <IconMenu
@@ -66,9 +66,21 @@ class appBar extends React.PureComponent {
       update: (proxy, {data}) => {
         proxy.writeQuery({ query: paramQuery, data })
       },
-    })
+    });
 
-    // load filter params unsupported for now
+    ['amp', 'diff'].forEach(type =>
+      client.mutate({
+        mutation: rawFilterMut,
+        variables: { type, raw: data.filter[type] },
+        update: (proxy, {data}) => {
+          const cache = client.readQuery({ query: filterQuery })
+          const filterData = {...cache.filter}
+          filterData[type] = data.rawFilter
+          cache.filter = filterData
+          proxy.writeQuery({ query: filterQuery, data: cache })
+        }
+      })
+    )
   }
   
   render() {

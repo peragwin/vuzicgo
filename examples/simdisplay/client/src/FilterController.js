@@ -39,6 +39,11 @@ export const filterMut = gql`
     filter(type: $type, level: $level, gain: $gain, tao: $tao)
   }`
 
+export const rawFilterMut = gql`
+  mutation RawFilterMut ($type: String!, $raw: [Float]!) {
+    rawFilter(type: $type, raw: $raw)
+  }`
+
 class FilterController extends React.PureComponent {
   state = {
     open: true,

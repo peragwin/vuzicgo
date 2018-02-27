@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 
+	"gonum.org/v1/gonum/mat"
+
 	"github.com/graphql-go/graphql"
 )
 
@@ -113,6 +115,34 @@ func (d *FrequencySensor) initGraphql() error {
 			return ret, nil
 		},
 	}
+	rawFilterMut := &graphql.Field{
+		Type: graphql.NewList(graphql.Float),
+		Args: graphql.FieldConfigArgument{
+			"type": &graphql.ArgumentConfig{Type: graphql.String},
+			"raw":  &graphql.ArgumentConfig{Type: graphql.NewList(graphql.Float)},
+		},
+		Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+			typ, ok := p.Args["type"]
+			if !ok {
+				return nil, errors.New("missing arg: type")
+			}
+			r, ok := p.Args["raw"]
+			if !ok {
+				return nil, errors.New("missing arg: raw")
+			}
+			rw := r.([]interface{})
+			raw := make([]float64, len(rw))
+			for i := range rw {
+				raw[i] = rw[i].(float64)
+			}
+			if typ.(string) == "amp" {
+				d.filterParams.gain = mat.NewDense(2, 2, raw)
+			} else if typ.(string) == "diff" {
+				d.filterParams.diff = mat.NewDense(2, 2, raw)
+			}
+			return raw, nil
+		},
+	}
 
 	rootQuery := graphql.NewObject(
 		graphql.ObjectConfig{
@@ -137,8 +167,9 @@ func (d *FrequencySensor) initGraphql() error {
 		graphql.ObjectConfig{
 			Name: "RootMut",
 			Fields: graphql.Fields{
-				"params": paramMut,
-				"filter": filterMut,
+				"params":    paramMut,
+				"filter":    filterMut,
+				"rawFilter": rawFilterMut,
 			},
 		},
 	)
