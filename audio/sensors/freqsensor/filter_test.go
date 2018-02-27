@@ -35,20 +35,24 @@ func TestFilter(t *testing.T) {
 				gain: mat.NewDense(2, 1, nil),
 				diff: mat.NewDense(2, 1, nil),
 			},
-			vgc: newVariableGainController(1, []float64{.01, .99}),
+			vgc: newVariableGainController(1, []float64{.1, .9}),
 		}
 	}
 
 	testFilterWithInput := func(t *testing.T, name string, input []float64, size int) {
 		d := newDisplay()
+		d.vgc.kp = 0.5
+		d.vgc.kd = 4
 		output0 := make([]float64, size)
 		output1 := make([]float64, size)
 		gain := make([]float64, size)
+		vgcFrame := make([]float64, size)
 		for i := range input {
 			d.applyFilters([]float64{input[i]})
 			output0[i] = d.filterValues.gain.At(0, 0)
 			output1[i] = d.filterValues.gain.At(1, 0)
-			gain[i] = d.vgc.frame.AtVec(0) //.AtVec(0)
+			gain[i] = d.vgc.gain[0] / 10
+			vgcFrame[i] = d.vgc.frame.AtVec(0)
 		}
 
 		p, err := plot.New()
@@ -61,6 +65,7 @@ func TestFilter(t *testing.T) {
 			"Output0", newPlotter(output0),
 			"Output1", newPlotter(output1),
 			"Gain", newPlotter(gain),
+			"VGC Frame", newPlotter(vgcFrame),
 		); err != nil {
 			t.Fatal(err)
 		}

@@ -23,7 +23,7 @@ var (
 			-0.0028, 0.2272,
 		}),
 	}
-	defaultVGCParams = []float64{0.005, 0.995}
+	defaultVGCParams = []float64{0.05, 0.95}
 
 	// DefaultParameters is a set of default parameters that work okay
 	DefaultParameters = &Parameters{
@@ -63,6 +63,7 @@ type FrequencySensor struct {
 	filterParams filterValues
 	filterValues filterValues
 	vgc          *variableGainController
+	preemphasis  float64
 
 	schema graphql.Schema
 
@@ -89,7 +90,8 @@ func NewFrequencySensor(cfg *Config) *FrequencySensor {
 			gain: mat.NewDense(2, cfg.Buckets, nil),
 			diff: mat.NewDense(2, cfg.Buckets, nil),
 		},
-		vgc: newVariableGainController(cfg.Buckets, defaultVGCParams),
+		vgc:         newVariableGainController(cfg.Buckets, defaultVGCParams),
+		preemphasis: 16,
 	}
 	if err := fs.initGraphql(); err != nil {
 		panic(err)
@@ -121,6 +123,8 @@ func (d *FrequencySensor) Process(done chan struct{}, in chan []float64) chan *D
 			if x == nil {
 				return
 			}
+
+			d.applyPreemphasis(x)
 
 			d.applyFilters(x)
 			d.applyChannelEffects()
@@ -307,4 +311,11 @@ func (d *FrequencySensor) applyBase(frame []float64) {
 	// 	fmt.Println("@@@ BASE", bass)
 	// }
 	d.Bass = .75*bass + .25*d.Bass
+}
+
+func (d *FrequencySensor) applyPreemphasis(frame []float64) {
+	incr := (d.preemphasis - 1) / float64(d.Buckets)
+	for i := range frame {
+		frame[i] *= 1 + float64(i)*incr
+	}
 }

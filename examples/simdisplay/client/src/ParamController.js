@@ -124,7 +124,7 @@ class ParamEditor extends React.PureComponent {
                         onChange={this.setParam('period')}
                     />
                     <ParamSlider title="Scale"
-                      min={0.5} max={4}
+                      min={0} max={4}
                       value={params.scale}
                       onChange={this.setParam('scale')}
                     />

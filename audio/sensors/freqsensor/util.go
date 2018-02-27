@@ -30,19 +30,26 @@ type variableGainController struct {
 	filterParams *mat.VecDense
 	frame        *mat.VecDense
 	gain         []float64
+	err          []float64
 	size         int
+	kp           float64
+	kd           float64
 }
 
 func newVariableGainController(size int, params []float64) *variableGainController {
-	init := make([]float64, size)
-	for i := range init {
-		init[i] = 1
+	gain := make([]float64, size)
+	err := make([]float64, size)
+	for i := range gain {
+		gain[i] = 1
 	}
 	return &variableGainController{
 		filterParams: mat.NewVecDense(2, params),
 		frame:        mat.NewVecDense(size, nil), // used to keep an internal LPF of the input
-		gain:         init,
+		gain:         gain,
+		err:          err,
 		size:         size,
+		kp:           1,
+		kd:           16,
 	}
 }
 
@@ -50,16 +57,19 @@ func (v *variableGainController) apply(input []float64) {
 	m := mat.NewDense(2, v.size, append(input, v.frame.RawVector().Data...))
 	v.frame.MulVec(m.T(), v.filterParams)
 
-	var g = make([]float64, v.size)
+	var e = make([]float64, v.size)
 
-	for i := range g {
-		//g[i] = sigmoidCurve(1 - v.frame.AtVec(i))
-
-		g[i] = customCurve(1 - v.frame.AtVec(i))
+	for i := range e {
+		//e[i] = sigmoidCurve(1 - v.frame.AtVec(i))
+		e[i] = quadraticCurve(1 - v.frame.AtVec(i))
+		//e[i] = logCurve(.0000001 + v.frame.AtVec(i))
 	}
 
-	for i := range g {
-		v.gain[i] += g[i]
+	for i := range e {
+		u := v.kp*e[i] + v.kd*(e[i]-v.err[i])
+		v.gain[i] += u
+		//fmt.Println(v.frame.AtVec(i), u, v.gain[i])
+		v.err[i] = e[i]
 	}
 }
 
@@ -71,10 +81,21 @@ func sigmoidCurve(x float64) float64 {
 	return 2*Sigmoid(x) - 1
 }
 
-func customCurve(x float64) float64 {
+func quadraticCurve(x float64) float64 {
 	sign := 1.0
 	if x < 0 {
 		sign = -1.0
 	}
 	return sign * x * x
+}
+
+func logCurve(x float64) float64 {
+	// if math.IsNaN(x) {
+	// 	panic("nan")
+	// }
+	sign := 1.0
+	if x > 0 {
+		sign = -1.0
+	}
+	return sign * (math.Log2(math.Abs(x)))
 }
