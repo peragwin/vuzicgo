@@ -42,11 +42,18 @@ func NewWindow(cfg *WindowConfig) (*Window, error) {
 		return nil, err
 	}
 	window.MakeContextCurrent()
+	wndw := &Window{Config: cfg, GlfwWindow: window}
 
 	window.SetKeyCallback(
 		func(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 			if key == glfw.KeyQ {
-				window.SetShouldClose(true)
+				w.SetShouldClose(true)
+			}
+			if key == glfw.KeyF1 && action == glfw.Press {
+				toggleFullscreen(w, 0)
+			}
+			if key == glfw.KeyF2 && action == glfw.Press {
+				toggleFullscreen(w, 1)
 			}
 		})
 
@@ -58,5 +65,23 @@ func NewWindow(cfg *WindowConfig) (*Window, error) {
 			})
 	}
 
-	return &Window{Config: cfg, GlfwWindow: window}, nil
+	return wndw, nil
+}
+
+var fullscreenMonitor, width, height int
+
+func toggleFullscreen(w *glfw.Window, m int) {
+	if w.GetMonitor() == nil || fullscreenMonitor != m {
+		width, height = w.GetSize()
+		mons := glfw.GetMonitors()
+		if m >= len(mons) {
+			m = len(mons) - 1
+		}
+		mon := mons[m]
+		vm := mon.GetVideoMode()
+		w.SetMonitor(mon, 0, 0, vm.Width, vm.Height, vm.RefreshRate)
+		fullscreenMonitor = m
+	} else {
+		w.SetMonitor(nil, 0, 0, width, height, 0)
+	}
 }
