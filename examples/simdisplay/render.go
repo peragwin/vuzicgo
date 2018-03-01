@@ -77,7 +77,11 @@ func (r *renderer) render() {
 			"pha":  r.src.Energy,
 			"diff": r.src.Diff,
 		}
-		bs, _ := json.Marshal(m)
+		bs, err := json.Marshal(m) //Indent(m, "", "  ")
+		if err != nil {
+			fmt.Printf("%#v", r.src.Drivers)
+			panic(err)
+		}
 		fmt.Println(string(bs))
 		r.lastRender = time.Now()
 	}

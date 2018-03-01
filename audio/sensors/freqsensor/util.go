@@ -67,9 +67,14 @@ func (v *variableGainController) apply(input []float64) {
 
 	for i := range e {
 		u := v.kp*e[i] + v.kd*(e[i]-v.err[i])
-		if v.gain[i] < 20000 {
-			v.gain[i] += u
+		v.gain[i] += u
+		if v.gain[i] > 10000 {
+			v.gain[i] = 10000
+		} else if v.gain[i] < 0 {
+			v.gain[i] = 0
 		}
+		// bs, _ := json.Marshal(v.gain)
+		// fmt.Println(string(bs))
 		//fmt.Println(v.frame.AtVec(i), u, v.gain[i])
 		v.err[i] = e[i]
 	}

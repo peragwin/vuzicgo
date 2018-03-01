@@ -267,15 +267,15 @@ func (d *FrequencySensor) applyChannelSync() {
 	avg := floats.Sum(d.Energy) / float64(d.Buckets)
 	if avg < -2*math.Pi {
 		for i := range d.Energy {
-			d.Energy[i] += 2 * math.Pi
+			d.Energy[i] = 2*math.Pi + math.Mod(d.Energy[i], 2*math.Pi)
 		}
-		avg += 2 * math.Pi
+		avg = 2*math.Pi + math.Mod(avg, 2*math.Pi)
 	}
 	if avg > 2*math.Pi {
 		for i := range d.Energy {
-			d.Energy[i] -= 2 * math.Pi
+			d.Energy[i] = math.Mod(d.Energy[i], 2*math.Pi)
 		}
-		avg -= 2 * math.Pi
+		avg = math.Mod(avg, 2*math.Pi)
 	}
 	for i, ph := range d.Energy {
 		diff := avg - d.Energy[i]
@@ -302,9 +302,9 @@ func (d *FrequencySensor) applyBase(frame []float64) {
 		}
 		bass += v * baseFilter[i]
 	}
-	if d.params.Debug && d.frameCount%10 == 0 {
-		fmt.Println("@@@ BASE", bass)
-	}
+	// if d.params.Debug && d.frameCount%10 == 0 {
+	// 	fmt.Println("@@@ BASE", bass)
+	// }
 	bass /= 2
 	bass = math.Log(1 + bass)
 	// if d.params.Debug && d.frameCount%10 == 0 {
