@@ -16,8 +16,8 @@ const (
 	#version 410
 	uniform float warp = 1;
 	uniform float scale = 1;
-	in vec3  vertPos;
-	in vec2  texPos;
+	in vec3 vertPos;
+	in vec2 texPos;
 	out vec2 fragTexPos;
 	
 	float x, y;
@@ -37,11 +37,53 @@ const (
 
 	fragmenShaderSource = `
 	#version 410
+	precision highp float;
+
+	uniform vec2 iResolution = vec2(1920, 1080);
 	uniform sampler2D tex;
 	in vec2 fragTexPos;
 	out vec4 frag_color;
+
+	vec4 blur(sampler2D image, vec2 uv, vec2 resolution) {
+		vec4 color = vec4(0.0);
+		int radius = 2;
+		for (int scale = 1; scale < radius; scale++)
+		{
+		vec2 direction = vec2(scale,0);
+
+		vec2 off1 = vec2(1.411764705882353) * direction;
+		vec2 off2 = vec2(3.2941176470588234) * direction;
+		vec2 off3 = vec2(5.176470588235294) * direction;
+
+		color += texture(image, uv) * 0.1964825501511404;
+		color += texture(image, uv + (off1 / resolution)) * 0.2969069646728344;
+		color += texture(image, uv - (off1 / resolution)) * 0.2969069646728344;
+		color += texture(image, uv + (off2 / resolution)) * 0.09447039785044732;
+		color += texture(image, uv - (off2 / resolution)) * 0.09447039785044732;
+		color += texture(image, uv + (off3 / resolution)) * 0.010381362401148057;
+		color += texture(image, uv - (off3 / resolution)) * 0.010381362401148057;
+
+		direction = vec2(0,scale);
+		off1 = vec2(1.411764705882353) * direction;
+		off2 = vec2(3.2941176470588234) * direction;
+		off3 = vec2(5.176470588235294) * direction;
+
+		color += texture(image, uv) * 0.1964825501511404;
+		color += texture(image, uv + (off1 / resolution)) * 0.2969069646728344;
+		color += texture(image, uv - (off1 / resolution)) * 0.2969069646728344;
+		color += texture(image, uv + (off2 / resolution)) * 0.09447039785044732;
+		color += texture(image, uv - (off2 / resolution)) * 0.09447039785044732;
+		color += texture(image, uv + (off3 / resolution)) * 0.010381362401148057;
+		color += texture(image, uv - (off3 / resolution)) * 0.010381362401148057;
+		}
+
+		return color / 2 / (radius-1);
+	}
+
 	void main() {
-		frag_color = texture(tex, fragTexPos);
+		//vec2 uv = fragTexPos.xy / iResolution;
+		frag_color = blur(tex, fragTexPos.xy, iResolution);
+		//frag_color = texture(tex, fragTexPos);
 	}`
 )
 
@@ -102,15 +144,15 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 		Width: cfg.Width, Height: cfg.Height, Title: cfg.Title,
 	}, []*gfx.ShaderConfig{
 		&gfx.ShaderConfig{
-			Typ:          gfx.VertexShaderType,
-			Source:       vertexShaderSource,
-			UniformNames: []string{"warp", "scale"},
+			Typ:            gfx.VertexShaderType,
+			Source:         vertexShaderSource,
+			AttributeNames: []string{"vertPos", "texPos"},
+			UniformNames:   []string{"warp", "scale"},
 		},
 		&gfx.ShaderConfig{
-			Typ:            gfx.FragmentShaderType,
-			Source:         fragmenShaderSource,
-			AttributeNames: []string{"vertPos", "texPos"},
-			UniformNames:   []string{"tex"},
+			Typ:          gfx.FragmentShaderType,
+			Source:       fragmenShaderSource,
+			UniformNames: []string{"tex", "iResolution"},
 		},
 	})
 	if err != nil {
@@ -118,6 +160,9 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 	}
 	// XXX needed?
 	gl.BindFragDataLocation(g.Program.ProgramID, 0, gl.Str("frag_color\x00"))
+	//gl.Uniform2f(g.GetUniformLocation("iResolution"), float32(cfg.Width), float32(cfg.Height))
+	gl.TextureParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER)
+	gl.TextureParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER)
 
 	img := image.NewRGBA(image.Rect(0, 0, cfg.Columns, cfg.Rows))
 	//fmt.Println(cfg.Columns, cfg.Rows)

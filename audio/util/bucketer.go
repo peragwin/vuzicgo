@@ -30,11 +30,26 @@ type logScale struct{}
 var LogScale *logScale
 
 func (s *logScale) To(val float64) float64 {
-	return math.Log2(1 + val)
+	return math.Log(1 + val)
 }
 func (s *logScale) From(val float64) float64 {
 	return math.Exp2(val) - 1
 }
+
+type logScaleX struct {
+	x float64
+}
+
+// LogScale2 is log2 scale but with a 2x slope
+var LogScale2 = &logScaleX{1}
+
+func (s *logScaleX) To(val float64) float64 {
+	return math.Log2(math.Log2(1 + val))
+}
+func (s *logScaleX) From(val float64) float64 {
+	return math.Exp2(math.Exp2(val)) - 1
+}
+
 
 // Bucketer puts the specturn into N buckets using a mel frequency scale
 type Bucketer struct {

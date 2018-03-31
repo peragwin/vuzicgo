@@ -103,7 +103,7 @@ func NewFrequencySensor(cfg *Config) *FrequencySensor {
 func (d *FrequencySensor) Process(done chan struct{}, in chan []float64) chan *Drivers {
 
 	x := <-in
-	bucketer := util.NewBucketer(util.LogScale, d.Buckets, len(x), 32, 16000)
+	bucketer := util.NewBucketer(util.LogScale2, d.Buckets, len(x), 32, 16000)
 	buckets := util.NewBucketProcessor(bucketer).Process(done, in)
 
 	out := make(chan *Drivers)
@@ -129,7 +129,7 @@ func (d *FrequencySensor) Process(done chan struct{}, in chan []float64) chan *D
 			d.applyFilters(x)
 			d.applyChannelEffects()
 			d.applyChannelSync()
-			d.applyBase(d.Diff)
+			d.applyBase(d.Amplitude[0])
 
 			d.frameCount++
 
@@ -265,18 +265,6 @@ func (d *FrequencySensor) applyChannelEffects() {
 
 func (d *FrequencySensor) applyChannelSync() {
 	avg := floats.Sum(d.Energy) / float64(d.Buckets)
-	if avg < -2*math.Pi {
-		for i := range d.Energy {
-			d.Energy[i] = 2*math.Pi + math.Mod(d.Energy[i], 2*math.Pi)
-		}
-		avg = 2*math.Pi + math.Mod(avg, 2*math.Pi)
-	}
-	if avg > 2*math.Pi {
-		for i := range d.Energy {
-			d.Energy[i] = math.Mod(d.Energy[i], 2*math.Pi)
-		}
-		avg = math.Mod(avg, 2*math.Pi)
-	}
 	for i, ph := range d.Energy {
 		diff := avg - d.Energy[i]
 		sign := math.Signbit(diff)
@@ -286,6 +274,35 @@ func (d *FrequencySensor) applyChannelSync() {
 		}
 		ph += d.params.Sync * diff
 		d.Energy[i] = ph
+	}
+	for i := 1; i < len(d.Energy) - 1; i++ {
+		diff := d.Energy[i-1] - d.Energy[i]
+		sign := 1.0
+		if diff < 0 { sign = -1 }
+		diff = sign * diff * diff
+		d.Energy[i] += 10 * d.params.Sync * diff
+
+		diff = d.Energy[i+1] - d.Energy[i]
+		sign = 1.0
+		if diff < 0 { sign = -1 }
+		diff = sign * diff * diff
+		d.Energy[i] += 10 * d.params.Sync * diff
+	}
+
+	avg = floats.Sum(d.Energy) / float64(d.Buckets)
+	if avg < -2*math.Pi {
+		for _, e := range d.Energy { if e >= -2*math.Pi { return } }
+		for i := range d.Energy {
+			d.Energy[i] = 2*math.Pi + math.Mod(d.Energy[i], 2*math.Pi)
+		}
+		avg = 2*math.Pi + math.Mod(avg, 2*math.Pi)
+	}
+	if avg > 2*math.Pi {
+		for _, e := range d.Energy { if e <= 2*math.Pi { return } }
+		for i := range d.Energy {
+			d.Energy[i] = math.Mod(d.Energy[i], 2*math.Pi)
+		}
+		avg = math.Mod(avg, 2*math.Pi)
 	}
 }
 
@@ -310,7 +327,7 @@ func (d *FrequencySensor) applyBase(frame []float64) {
 	// if d.params.Debug && d.frameCount%10 == 0 {
 	// 	fmt.Println("@@@ BASE", bass)
 	// }
-	d.Bass = .75*bass + .25*d.Bass
+	d.Bass = .25*bass + .75*d.Bass
 }
 
 func (d *FrequencySensor) applyPreemphasis(frame []float64) {
