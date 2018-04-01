@@ -82,8 +82,9 @@ const (
 
 	void main() {
 		//vec2 uv = fragTexPos.xy / iResolution;
-		frag_color = blur(tex, fragTexPos.xy, iResolution);
-		//frag_color = texture(tex, fragTexPos);
+		frag_color = vec4(blur(tex, fragTexPos.xy, iResolution).rgb, 1);
+		// vec3 v = texture(tex, fragTexPos).rgb;
+		// frag_color = vec4(v, 1);
 	}`
 )
 

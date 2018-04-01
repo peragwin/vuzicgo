@@ -48,8 +48,8 @@ func newVariableGainController(size int, params []float64) * variableGainControl
 		gain:gain, 
 		err:err, 
 		size:size, 
-		kp:.1, 
-		kd:.5, 
+		kp:.4, 
+		kd: 2, 
 	}
 }
 

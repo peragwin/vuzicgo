@@ -141,10 +141,11 @@ func getHSV(params * fs.Parameters, amp, ph, phi float64)color.RGBA {
 		hue += 360
 	}
 	sat := fs.Sigmoid(br - 2 + amp)
-	val := fs.Sigmoid(gbr/255 * (1 + amp) - 2)
+	val := fs.Sigmoid(gbr/255 * (1+amp) - 4)
+	al := fs.Sigmoid(.5*amp - 4)
 
 	r, g, b := colorful.Hsv(hue, sat, val).RGB255()
-	return color.RGBA {r, g, b, 255}
+	return color.RGBA {r, g, b, uint8(256*al)}
 }
 
 func getRGB(params * fs.Parameters, amp, ph, phi float64)color.RGBA {
