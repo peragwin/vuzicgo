@@ -52,5 +52,5 @@ func (s *Grid) Pixel(x, y int, col color.RGBA) {
 }
 
 func (s *Grid) Show() error {
-	return s.driver.Send(s.buffer)
+	return s.driver.Send(s.buffer)//[4:4+4*(s.Width*s.Height)])
 }
