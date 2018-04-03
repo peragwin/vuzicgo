@@ -162,8 +162,8 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 	// XXX needed?
 	gl.BindFragDataLocation(g.Program.ProgramID, 0, gl.Str("frag_color\x00"))
 	//gl.Uniform2f(g.GetUniformLocation("iResolution"), float32(cfg.Width), float32(cfg.Height))
-	gl.TextureParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER)
-	gl.TextureParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER)
+	//gl.TextureParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER)
+	// gl.TextureParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER)
 
 	img := image.NewRGBA(image.Rect(0, 0, cfg.Columns, cfg.Rows))
 	//fmt.Println(cfg.Columns, cfg.Rows)

@@ -11,24 +11,24 @@ type drivers struct {
 	phase     []float64
 }
 
-func newDrivers(rows int, columns int)(drivers) {
+func newDrivers(rows int, columns int) drivers {
 	amp := make([][]float64, columns)
 	for i := range amp {
 		amp[i] = make([]float64, rows)
 	}
-	return drivers {
-		amp, make([]float64, rows), 
+	return drivers{
+		amp, make([]float64, rows),
 	}
 }
 
 type filterValues struct {
-	gain * mat.Dense
-	diff * mat.Dense
+	gain *mat.Dense
+	diff *mat.Dense
 }
 
 type variableGainController struct {
-	filterParams * mat.VecDense
-	frame * mat.VecDense
+	filterParams *mat.VecDense
+	frame        *mat.VecDense
 	gain         []float64
 	err          []float64
 	size         int
@@ -36,24 +36,24 @@ type variableGainController struct {
 	kd           float64
 }
 
-func newVariableGainController(size int, params []float64) * variableGainController {
+func newVariableGainController(size int, params []float64) *variableGainController {
 	gain := make([]float64, size)
 	err := make([]float64, size)
 	for i := range gain {
 		gain[i] = 1
 	}
-	return & variableGainController {
-		filterParams:mat.NewVecDense(2, params), 
-		frame:mat.NewVecDense(size, nil), // used to keep an internal LPF of the input
-		gain:gain, 
-		err:err, 
-		size:size, 
-		kp:.4, 
-		kd: 2, 
+	return &variableGainController{
+		filterParams: mat.NewVecDense(2, params),
+		frame:        mat.NewVecDense(size, nil), // used to keep an internal LPF of the input
+		gain:         gain,
+		err:          err,
+		size:         size,
+		kp:           2,
+		kd:           8,
 	}
 }
 
-func (v * variableGainController)apply(input []float64) {
+func (v *variableGainController) apply(input []float64) {
 	m := mat.NewDense(2, v.size, append(input, v.frame.RawVector().Data...))
 	v.frame.MulVec(m.T(), v.filterParams)
 
@@ -66,12 +66,12 @@ func (v * variableGainController)apply(input []float64) {
 	}
 
 	for i := range e {
-		u := v.kp * e[i] + v.kd * (e[i] - v.err[i])
+		u := v.kp*e[i] + v.kd*(e[i]-v.err[i])
 		v.gain[i] += u
-		if v.gain[i] > 10000 {
-			v.gain[i] = 10000
-		}else if v.gain[i] < 0 {
-			v.gain[i] = 0
+		if v.gain[i] > 1000000 {
+			v.gain[i] = 1000000
+		} else if v.gain[i] < .000001 {
+			v.gain[i] = .000001
 		}
 		// bs, _ := json.Marshal(v.gain)
 		// fmt.Println(string(bs))
@@ -80,15 +80,15 @@ func (v * variableGainController)apply(input []float64) {
 	}
 }
 
-func Sigmoid(x float64)float64 {
-	return 1 / (1 + math.Exp( - x))
+func Sigmoid(x float64) float64 {
+	return 1 / (1 + math.Exp(-x))
 }
 
-func sigmoidCurve(x float64)float64 {
-	return 2 * Sigmoid(x) - 1
+func sigmoidCurve(x float64) float64 {
+	return 2*Sigmoid(x) - 1
 }
 
-func quadraticCurve(x float64)float64 {
+func quadraticCurve(x float64) float64 {
 	sign := 1.0
 	if x < 0 {
 		sign = -1.0
@@ -96,7 +96,7 @@ func quadraticCurve(x float64)float64 {
 	return sign * x * x
 }
 
-func logCurve(x float64)float64 {
+func logCurve(x float64) float64 {
 	// if math.IsNaN(x) {
 	// 	panic("nan")
 	// }
