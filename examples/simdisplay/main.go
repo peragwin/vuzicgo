@@ -1,25 +1,22 @@
 package main
 
 import (
-	"math"
 	"context"
 	"encoding/json"
 	"flag"
-	"time"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"runtime"
-	"image/color"
+	"time"
 
-	"github.com/nfnt/resize"
 	"github.com/go-gl/gl/v4.1-core/gl"
 
 	"github.com/peragwin/vuzicgo/audio"
 	"github.com/peragwin/vuzicgo/audio/fft"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
-	"github.com/peragwin/vuzicgo/gfx/warpgrid"
 	"github.com/peragwin/vuzicgo/gfx/skgrid"
+	"github.com/peragwin/vuzicgo/gfx/warpgrid"
 )
 
 const (
@@ -36,7 +33,7 @@ var (
 	buckets = flag.Int("buckets", 64, "number of frequency buckets")
 	columns = flag.Int("columns", 16, "number of cells per row")
 
-	mode = flag.Int("mode", fs.NormalMode, "which mode: 0=Normal, 1=Animate")
+	mode   = flag.Int("mode", fs.NormalMode, "which mode: 0=Normal, 1=Animate")
 	remote = flag.String("remote", "", "ip:port of remote grid")
 )
 
@@ -109,7 +106,6 @@ func main() {
 
 	rndr := newRenderer(*columns, fs.DefaultParameters, f)
 	frames := rndr.Render(done, render)
-	// skframes := make(chan *renderValues)
 
 	g.SetRenderFunc(func(g *warpgrid.Grid) {
 		render <- struct{}{}
@@ -121,100 +117,23 @@ func main() {
 		}
 	})
 
+	// If a remote is passed try to stream to it. If we lose the connection, try again
+	// after 10 seconds to reestablish a connection.
 	if *remote != "" {
-		if skRem, err := skgrid.NewRemote(*remote); err != nil {
-			log.Println("[ERROR] could not connect to remote skgrid controller")
-		} else {
-			go func () {
-				defer skRem.Close()
-				skGrid := skgrid.NewGrid(60, 16, skRem)
-				
-				render := make(chan struct{})
-				frames := rndr.Render(done, render)
-
-				xinput := make([]float64, skGrid.Height / 2)
-				for i := range xinput {
-					xinput[i] = 1 - 2 * float64(i) / float64(skGrid.Height)
+		go func() {
+			delay := time.NewTicker(10 * time.Second)
+			for {
+				if skRem, err := skgrid.NewRemote(*remote); err != nil {
+					log.Println("[ERROR] could not connect to remote skgrid controller. " +
+						"Retrying in 10 seconds...")
+					<-delay.C
+				} else {
+					done := make(chan struct{})
+					go rndr.skgridRender(skRem, done)
+					<-done
 				}
-				warpIndices := func(warp float64) []int {
-					ws := fs.DefaultParameters.WarpScale
-					wo := fs.DefaultParameters.WarpOffset
-					warp = wo + ws * math.Abs(warp)
-					wv := make([]int, skGrid.Height)
-					b := skGrid.Height / 2
-					for i := 0; i < skGrid.Height / 2; i++ {
-						scaled := 1 - math.Pow(xinput[i], warp)
-						xp := scaled * float64(skGrid.Height / 2)
-						wv[b-i] = b - int(xp+0.5)
-						wv[b+i] = b + int(xp+0.5)
-					}
-					return wv
-				}
-				scaleIndex := func(y int, scale float64) int {
-					yi := 1 - float64(y) / float64(skGrid.Width)
-					warp := fs.DefaultParameters.Scale * scale
-					scaled := 1 - math.Pow(yi, warp)
-					return int((float64(skGrid.Width) * scaled) + .5)
-				}
-
-				ticker := time.NewTicker(30000 * time.Microsecond)
-
-				for {
-					<-ticker.C
-					render <- struct{}{}
-					frame := <-frames
-					if frame == nil {
-						break
-					}
-					img := resize.Resize(uint(skGrid.Height), uint(skGrid.Width),
-						frame.img, resize.NearestNeighbor)
-
-					wvs := make([][]int, skGrid.Width)
-					yv := make([]int, skGrid.Width)
-					for i := range wvs {
-						wvs[i] = warpIndices(float64(frame.warp[i]))
-						yv[i] = scaleIndex(i, float64(frame.scale))
-					}
-
-					for y := 0; y < 60; y++ {
-						for x := 0; x < 16; x++ {
-							px := img.At(x, skGrid.Width - 1 - y).(color.RGBA)
-							px.G /= 2
-							px.B /= 2
-							px.A =  uint8(float64(px.A) / 8 + 0.5);
-							
-							xstart := 0
-							if x != 0 {
-								xstart = wvs[y][x]
-							}
-							xend := skGrid.Height
-							if x != skGrid.Height - 1 {
-								//log.Println(y, x, wvs[y])
-								xend = wvs[y][x+1]
-							}
-
-							ystart := yv[y]
-							yend := skGrid.Width
-							if y != skGrid.Width - 1 {
-								yend = yv[y+1]
-							}
-
-							if xend > xstart && yend > ystart{
-								for j := ystart; j < yend; j++ {
-									for k := xstart; k < xend; k++ {
-										skGrid.Pixel(j, k, px)
-									}
-								}
-							}
-						}
-					}
-
-					if err := skGrid.Show(); err != nil {
-						log.Println("sk grid error!", err)
-					}
-				}
-			}()
-		}
+			}
+		}()
 	}
 
 	go func() {
@@ -249,6 +168,8 @@ func main() {
 			}
 			json.NewEncoder(w).Encode(res)
 		})
+
+		http.Handle("/", http.FileServer(http.Dir("./client/build")))
 
 		http.ListenAndServe(":8080", nil)
 	}()

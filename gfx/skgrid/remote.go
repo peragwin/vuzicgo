@@ -25,17 +25,17 @@ func (s *Remote) Send(b []byte) error {
 	if n != len(b) {
 		return fmt.Errorf("only wrote %d of %d bytes", n, len(b))
 	}
-	r := []byte{0}
-	_, err = s.sock.Read(r)
-	if err != nil {
-		return err
-	}
-	switch r[0] {
-	case 0x01:
-		//log.Println("recevied remote ack")
-	default:
-		return fmt.Errorf("remote returned error code %2x", r[0])
-	}
+	// r := []byte{0}
+	// _, err = s.sock.Read(r)
+	// if err != nil {
+	// 	return err
+	// }
+	// switch r[0] {
+	// case 0x01:
+	// 	//log.Println("recevied remote ack")
+	// default:
+	// 	return fmt.Errorf("remote returned error code %2x", r[0])
+	// }
 	return nil
 }
 
