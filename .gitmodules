@@ -1,0 +1,3 @@
+[submodule "gfx/flaschen-taschen"]
+	path = gfx/flaschen-taschen
+	url = https://github.com/peragwin/flaschen-taschen
