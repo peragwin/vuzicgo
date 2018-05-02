@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/peragwin/vuzicgo/gfx/flaschen-taschen/api/go"
+
 	"github.com/go-gl/gl/v4.1-core/gl"
 
 	"github.com/peragwin/vuzicgo/audio"
@@ -33,8 +35,9 @@ var (
 	buckets = flag.Int("buckets", 64, "number of frequency buckets")
 	columns = flag.Int("columns", 16, "number of cells per row")
 
-	mode   = flag.Int("mode", fs.NormalMode, "which mode: 0=Normal, 1=Animate")
-	remote = flag.String("remote", "", "ip:port of remote grid")
+	mode     = flag.Int("mode", fs.NormalMode, "which mode: 0=Normal, 1=Animate")
+	remote   = flag.String("remote", "", "ip:port of remote grid")
+	flRemote = flag.String("fl-remote", "", "ip:port of flaschen grid")
 )
 
 func initGfx(done chan struct{}) *warpgrid.Grid {
@@ -130,6 +133,23 @@ func main() {
 				} else {
 					done := make(chan struct{})
 					go rndr.skgridRender(skRem, done)
+					<-done
+				}
+			}
+		}()
+	}
+
+	if *flRemote != "" {
+		go func() {
+			delay := time.NewTicker(10 * time.Second)
+			for {
+				if flRem, err := flaschen.NewFlaschen(45, 35, 10, *flRemote); err != nil {
+					log.Println("[ERROR] could not connect to remote flaschen controller. " +
+						"Retrying in 10 seconds...")
+					<-delay.C
+				} else {
+					done := make(chan struct{})
+					go rndr.flaschenRender(flRem, done)
 					<-done
 				}
 			}

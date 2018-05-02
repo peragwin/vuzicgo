@@ -12,6 +12,7 @@ import (
 	colorful "github.com/lucasb-eyer/go-colorful"
 	"github.com/nfnt/resize"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
+	flaschen "github.com/peragwin/vuzicgo/gfx/flaschen-taschen/api/go"
 	"github.com/peragwin/vuzicgo/gfx/skgrid"
 )
 
@@ -265,6 +266,103 @@ func (r *renderer) skgridRender(skRem *skgrid.Remote, done chan struct{}) {
 
 		if err := skGrid.Show(); err != nil {
 			log.Println("sk grid error!", err)
+			break
+		}
+	}
+}
+
+func (r *renderer) flaschenRender(fl *flaschen.Flaschen, done chan struct{}) {
+	defer fl.Close()
+	defer close(done)
+
+	rect := fl.Rect()
+	width := rect.Dx()
+	height := rect.Dy()
+
+	render := make(chan struct{})
+	frames := r.Render(done, render)
+
+	xinput := make([]float64, width/2)
+	for i := range xinput {
+		xinput[i] = 1 - 2*float64(i)/float64(width)
+	}
+	warpIndices := func(warp float64) []int {
+		ws := fs.DefaultParameters.WarpScale
+		wo := fs.DefaultParameters.WarpOffset
+		warp = wo + ws*math.Abs(warp)
+		wv := make([]int, width)
+		b := width / 2
+		for i := 0; i < width/2; i++ {
+			scaled := 1 - math.Pow(xinput[i], warp)
+			xp := scaled * float64(width/2)
+			wv[b-i] = b - int(xp+0.5)
+			wv[b+i] = b + int(xp+0.5)
+		}
+		return wv
+	}
+	scaleIndex := func(y int, scale float64) int {
+		yi := 1 - float64(y)/float64(height)
+		warp := fs.DefaultParameters.Scale * scale
+		scaled := 1 - math.Pow(yi, warp)
+		return int((float64(height) * scaled) + .5)
+	}
+
+	ticker := time.NewTicker(33333 * time.Microsecond)
+
+	for {
+		<-ticker.C
+		render <- struct{}{}
+		frame := <-frames
+		if frame == nil {
+			break
+		}
+		img := resize.Resize(uint(width), uint(height),
+			frame.img, resize.NearestNeighbor)
+
+		wvs := make([][]int, height)
+		yv := make([]int, height)
+		for i := range wvs {
+			wvs[i] = warpIndices(float64(frame.warp[i]))
+			yv[i] = scaleIndex(i, float64(frame.scale))
+		}
+
+		for y := 0; y < height; y++ {
+			for x := 0; x < width; x++ {
+				px := img.At(x, y).(color.RGBA)
+
+				xstart := 0
+				if x != 0 {
+					xstart = wvs[y][x]
+				}
+				xend := width
+				if x != width-1 {
+					//log.Println(y, x, wvs[y])
+					xend = wvs[y][x+1]
+				} else {
+					if xstart == 0 {
+						xstart = xend - 1
+					}
+				}
+
+				ystart := yv[y]
+				yend := height
+				if y != height-1 {
+					yend = yv[y+1]
+				}
+
+				if xend > xstart && yend > ystart {
+					// fmt.Println(xstart, xend, ystart, yend)
+					for j := ystart; j < yend; j++ {
+						for k := xstart; k < xend; k++ {
+							fl.Pixel(k, j, px)
+						}
+					}
+				}
+			}
+		}
+
+		if err := fl.Show(); err != nil {
+			log.Println("flaschen grid error!", err)
 			break
 		}
 	}
