@@ -146,12 +146,12 @@ func main() {
 				if flRem, err := flaschen.NewFlaschen(45, 35, 10, *flRemote); err != nil {
 					log.Println("[ERROR] could not connect to remote flaschen controller. " +
 						"Retrying in 10 seconds...")
-					<-delay.C
 				} else {
 					done := make(chan struct{})
 					go rndr.flaschenRender(flRem, done)
 					<-done
 				}
+				<-delay.C
 			}
 		}()
 	}

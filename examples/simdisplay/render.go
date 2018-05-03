@@ -282,7 +282,8 @@ func (r *renderer) flaschenRender(fl *flaschen.Flaschen, done chan struct{}) {
 	render := make(chan struct{})
 	frames := r.Render(done, render)
 
-	xinput := make([]float64, width/2)
+	mod := width % 2
+	xinput := make([]float64, width/2+mod)
 	for i := range xinput {
 		xinput[i] = 1 - 2*float64(i)/float64(width)
 	}
@@ -292,9 +293,9 @@ func (r *renderer) flaschenRender(fl *flaschen.Flaschen, done chan struct{}) {
 		warp = wo + ws*math.Abs(warp)
 		wv := make([]int, width)
 		b := width / 2
-		for i := 0; i < width/2; i++ {
+		for i := 0; i < width/2+mod; i++ {
 			scaled := 1 - math.Pow(xinput[i], warp)
-			xp := scaled * float64(width/2)
+			xp := scaled * float64(width) / 2
 			wv[b-i] = b - int(xp+0.5)
 			wv[b+i] = b + int(xp+0.5)
 		}
@@ -302,12 +303,12 @@ func (r *renderer) flaschenRender(fl *flaschen.Flaschen, done chan struct{}) {
 	}
 	scaleIndex := func(y int, scale float64) int {
 		yi := 1 - float64(y)/float64(height)
-		warp := fs.DefaultParameters.Scale * scale
+		warp := 1.0 //fs.DefaultParameters.Scale * scale
 		scaled := 1 - math.Pow(yi, warp)
 		return int((float64(height) * scaled) + .5)
 	}
 
-	ticker := time.NewTicker(33333 * time.Microsecond)
+	ticker := time.NewTicker(20000 * time.Microsecond)
 
 	for {
 		<-ticker.C
@@ -336,12 +337,8 @@ func (r *renderer) flaschenRender(fl *flaschen.Flaschen, done chan struct{}) {
 				}
 				xend := width
 				if x != width-1 {
-					//log.Println(y, x, wvs[y])
+					// log.Println(y, x, wvs[y])
 					xend = wvs[y][x+1]
-				} else {
-					if xstart == 0 {
-						xstart = xend - 1
-					}
 				}
 
 				ystart := yv[y]
@@ -354,7 +351,7 @@ func (r *renderer) flaschenRender(fl *flaschen.Flaschen, done chan struct{}) {
 					// fmt.Println(xstart, xend, ystart, yend)
 					for j := ystart; j < yend; j++ {
 						for k := xstart; k < xend; k++ {
-							fl.Pixel(k, j, px)
+							fl.Pixel(k, height-1-j, px)
 						}
 					}
 				}
