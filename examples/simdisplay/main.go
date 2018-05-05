@@ -35,6 +35,7 @@ var (
 	buckets = flag.Int("buckets", 64, "number of frequency buckets")
 	columns = flag.Int("columns", 16, "number of cells per row")
 
+	headless = flag.Bool("headless", false, "run without initializing OpenGL display")
 	mode     = flag.Int("mode", fs.NormalMode, "which mode: 0=Normal, 1=Animate")
 	remote   = flag.String("remote", "", "ip:port of remote grid")
 	flRemote = flag.String("fl-remote", "", "ip:port of flaschen grid")
@@ -63,9 +64,12 @@ func main() {
 	done := make(chan struct{})
 	defer close(done)
 
-	// The graphics have to be the first thing we initialize on macOS; I'm guessing it's
-	// because of the syscall that binds it to the main thread.
-	g := initGfx(done)
+	var g *warpgrid.Grid
+	if !*headless {
+		// The graphics have to be the first thing we initialize on macOS; I'm guessing it's
+		// because of the syscall that binds it to the main thread.
+		g = initGfx(done)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -110,15 +114,17 @@ func main() {
 	rndr := newRenderer(*columns, fs.DefaultParameters, f)
 	frames := rndr.Render(done, render)
 
-	g.SetRenderFunc(func(g *warpgrid.Grid) {
-		render <- struct{}{}
-		rv := <-frames
-		g.SetImage(rv.img)
-		g.SetScale(rv.scale)
-		for i, w := range rv.warp {
-			g.SetWarp(i, w)
-		}
-	})
+	if !*headless {
+		g.SetRenderFunc(func(g *warpgrid.Grid) {
+			render <- struct{}{}
+			rv := <-frames
+			g.SetImage(rv.img)
+			g.SetScale(rv.scale)
+			for i, w := range rv.warp {
+				g.SetWarp(i, w)
+			}
+		})
+	}
 
 	// If a remote is passed try to stream to it. If we lose the connection, try again
 	// after 10 seconds to reestablish a connection.
@@ -194,5 +200,9 @@ func main() {
 		http.ListenAndServe(":8080", nil)
 	}()
 
-	g.Start()
+	if !*headless {
+		g.Start()
+	} else {
+		<-done
+	}
 }
