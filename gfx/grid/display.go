@@ -201,6 +201,8 @@ func (g *Grid) createCells(columns, rows int, ctx *gfx.Context) error {
 }
 
 func (g *Grid) drawTexture(*gfx.Context) bool {
+	g.image.SetRGBA(0, 0, color.RGBA{0, 255, 0, 255})
+	//fmt.Println(g.image.Rect)
 	g.texture.Update(g.image)
 	return true
 }

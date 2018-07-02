@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -38,6 +39,8 @@ var (
 	mode     = flag.Int("mode", fs.NormalMode, "which mode: 0=Normal, 1=Animate")
 	remote   = flag.String("remote", "", "ip:port of remote grid")
 	flRemote = flag.String("fl-remote", "", "ip:port of flaschen grid")
+
+	headless = flag.Bool("headless", false, "run without graphical display")
 )
 
 func initGfx(done chan struct{}) *warpgrid.Grid {
@@ -63,9 +66,12 @@ func main() {
 	done := make(chan struct{})
 	defer close(done)
 
-	// The graphics have to be the first thing we initialize on macOS; I'm guessing it's
-	// because of the syscall that binds it to the main thread.
-	g := initGfx(done)
+	var g *warpgrid.Grid
+	if !*headless {
+		// The graphics have to be the first thing we initialize on macOS; I'm guessing it's
+		// because of the syscall that binds it to the main thread.
+		g = initGfx(done)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -110,15 +116,26 @@ func main() {
 	rndr := newRenderer(*columns, fs.DefaultParameters, f)
 	frames := rndr.Render(done, render)
 
-	g.SetRenderFunc(func(g *warpgrid.Grid) {
-		render <- struct{}{}
-		rv := <-frames
-		g.SetImage(rv.img)
-		g.SetScale(rv.scale)
-		for i, w := range rv.warp {
-			g.SetWarp(i, w)
-		}
-	})
+	if !*headless {
+		g.SetRenderFunc(func(g *warpgrid.Grid) {
+			render <- struct{}{}
+			rv := <-frames
+			g.SetImage(rv.img)
+			g.SetScale(rv.scale)
+			for i, w := range rv.warp {
+				g.SetWarp(i, w)
+			}
+		})
+	}
+	// else {
+	// 	go func() {
+	// 		t := time.NewTicker(33 * time.Millisecond)
+	// 		for {
+	// 			<-t.C
+	// 			render <- struct{}{}
+	// 		}
+	// 	}()
+	// }
 
 	// If a remote is passed try to stream to it. If we lose the connection, try again
 	// after 10 seconds to reestablish a connection.
@@ -131,6 +148,7 @@ func main() {
 						"Retrying in 10 seconds...")
 					<-delay.C
 				} else {
+					fmt.Println("connected to skgrid")
 					done := make(chan struct{})
 					go rndr.skgridRender(skRem, done)
 					<-done
@@ -190,9 +208,13 @@ func main() {
 		})
 
 		http.Handle("/", http.FileServer(http.Dir("./client/build")))
-
+		log.Println("serving web controller on port 8080")
 		http.ListenAndServe(":8080", nil)
 	}()
 
-	g.Start()
+	if *headless {
+		<-done
+	} else {
+		g.Start()
+	}
 }

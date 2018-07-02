@@ -18,6 +18,7 @@ func NewRemote(addr string) (*Remote, error) {
 }
 
 func (s *Remote) Send(b []byte) error {
+	//fmt.Println("write!")
 	n, err := s.sock.Write(b)
 	if err != nil {
 		return err

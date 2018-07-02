@@ -8,6 +8,7 @@ import (
 	"github.com/mjibson/go-dsp/window"
 )
 
+// FFTProcessor is a processor that performs FFT on incoming frames
 type FFTProcessor struct {
 	SampleRate float64
 	Size       int
@@ -15,6 +16,7 @@ type FFTProcessor struct {
 	window []float64
 }
 
+// NewFFTProcessor creates a new processor that performs FFT on incoming frames
 func NewFFTProcessor(sampleRate float64, size int) *FFTProcessor {
 	w := window.Hamming(size)
 	return &FFTProcessor{
@@ -24,6 +26,7 @@ func NewFFTProcessor(sampleRate float64, size int) *FFTProcessor {
 	}
 }
 
+// Process processes incoming frames by applying a Hamming window then performing a real FFT
 func (f *FFTProcessor) Process(done chan struct{}, in chan []float64) chan []complex128 {
 
 	out := make(chan []complex128)
@@ -50,9 +53,10 @@ func (f *FFTProcessor) Process(done chan struct{}, in chan []float64) chan []com
 	return out
 }
 
-type PowerSpectrumProcessor struct {
-}
+// PowerSpectrumProcessor processes takes FFT frames as input and computes the log power spectrumm
+type PowerSpectrumProcessor struct{}
 
+// Process processes FFT input frames and outputs log power spectral frames
 func (p *PowerSpectrumProcessor) Process(done chan struct{}, in chan []complex128) chan []float64 {
 
 	out := make(chan []float64)

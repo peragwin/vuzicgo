@@ -52,7 +52,8 @@ type Drivers struct {
 	Bass float64
 }
 
-// FrequencySensor is the main object that generate the visualization
+// FrequencySensor is the main object that generates visualization parameters from incoming
+// log power spectral frames.
 type FrequencySensor struct {
 	Frames  int
 	Buckets int
@@ -275,30 +276,42 @@ func (d *FrequencySensor) applyChannelSync() {
 		ph += d.params.Sync * diff
 		d.Energy[i] = ph
 	}
-	for i := 1; i < len(d.Energy) - 1; i++ {
+	for i := 1; i < len(d.Energy)-1; i++ {
 		diff := d.Energy[i-1] - d.Energy[i]
 		sign := 1.0
-		if diff < 0 { sign = -1 }
+		if diff < 0 {
+			sign = -1
+		}
 		diff = sign * diff * diff
 		d.Energy[i] += 10 * d.params.Sync * diff
 
 		diff = d.Energy[i+1] - d.Energy[i]
 		sign = 1.0
-		if diff < 0 { sign = -1 }
+		if diff < 0 {
+			sign = -1
+		}
 		diff = sign * diff * diff
 		d.Energy[i] += 10 * d.params.Sync * diff
 	}
 
 	avg = floats.Sum(d.Energy) / float64(d.Buckets)
 	if avg < -2*math.Pi {
-		for _, e := range d.Energy { if e >= -2*math.Pi { return } }
+		for _, e := range d.Energy {
+			if e >= -2*math.Pi {
+				return
+			}
+		}
 		for i := range d.Energy {
 			d.Energy[i] = 2*math.Pi + math.Mod(d.Energy[i], 2*math.Pi)
 		}
 		avg = 2*math.Pi + math.Mod(avg, 2*math.Pi)
 	}
 	if avg > 2*math.Pi {
-		for _, e := range d.Energy { if e <= 2*math.Pi { return } }
+		for _, e := range d.Energy {
+			if e <= 2*math.Pi {
+				return
+			}
+		}
 		for i := range d.Energy {
 			d.Energy[i] = math.Mod(d.Energy[i], 2*math.Pi)
 		}

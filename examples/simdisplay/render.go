@@ -146,10 +146,10 @@ func getHSV(params *fs.Parameters, amp, ph, phi float64) color.RGBA {
 	}
 	sat := fs.Sigmoid(br - 2 + amp)
 	val := fs.Sigmoid(gbr/255*(1+amp) - 4)
-	al := fs.Sigmoid(.25*amp - 4)
+	al := fs.Sigmoid(.05*amp - 4)
 
 	r, g, b := colorful.Hsv(hue, sat, val).RGB255()
-	return color.RGBA{r, g, b, uint8(256 * al)}
+	return color.RGBA{r, g, b, uint8(255 * al)}
 }
 
 func getRGB(params *fs.Parameters, amp, ph, phi float64) color.RGBA {
@@ -179,6 +179,7 @@ func getRGB(params *fs.Parameters, amp, ph, phi float64) color.RGBA {
 }
 
 func (r *renderer) skgridRender(skRem *skgrid.Remote, done chan struct{}) {
+	//fmt.Println("sk render func")
 	defer skRem.Close()
 	defer close(done)
 
@@ -216,6 +217,7 @@ func (r *renderer) skgridRender(skRem *skgrid.Remote, done chan struct{}) {
 
 	for {
 		<-ticker.C
+		//fmt.Println("render sk frame")
 		render <- struct{}{}
 		frame := <-frames
 		if frame == nil {
