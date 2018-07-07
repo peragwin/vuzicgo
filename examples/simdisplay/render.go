@@ -178,7 +178,7 @@ func getRGB(params *fs.Parameters, amp, ph, phi float64) color.RGBA {
 	return color.RGBA{uint8(r), uint8(g), uint8(b), 255}
 }
 
-func (r *renderer) skgridRender(skRem *skgrid.Remote, done chan struct{}) {
+func (r *renderer) skgridRender(skRem skgrid.Driver, done chan struct{}) {
 	defer skRem.Close()
 	defer close(done)
 

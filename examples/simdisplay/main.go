@@ -39,6 +39,7 @@ var (
 	mode     = flag.Int("mode", fs.NormalMode, "which mode: 0=Normal, 1=Animate")
 	remote   = flag.String("remote", "", "ip:port of remote grid")
 	flRemote = flag.String("fl-remote", "", "ip:port of flaschen grid")
+	pilocal  = flag.Bool("pilocal", false, "use raspberry pi's SPI output")
 )
 
 func initGfx(done chan struct{}) *warpgrid.Grid {
@@ -158,6 +159,18 @@ func main() {
 					<-done
 				}
 				<-delay.C
+			}
+		}()
+	}
+
+	if *pilocal {
+		go func() {
+			if pi, err := skgrid.NewPiLocal(8e6); err != nil {
+				log.Println("[ERROR] could not initialize raspberry pi:", err)
+			} else {
+				done := make(chan struct{})
+				go rndr.skgridRender(pi, done)
+				<-done
 			}
 		}()
 	}
