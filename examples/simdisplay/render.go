@@ -12,7 +12,6 @@ import (
 	colorful "github.com/lucasb-eyer/go-colorful"
 	"github.com/nfnt/resize"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
-	flaschen "github.com/peragwin/vuzicgo/gfx/flaschen-taschen/api/go"
 	"github.com/peragwin/vuzicgo/gfx/skgrid"
 )
 
@@ -178,105 +177,11 @@ func getRGB(params *fs.Parameters, amp, ph, phi float64) color.RGBA {
 	return color.RGBA{uint8(r), uint8(g), uint8(b), 255}
 }
 
-func (r *renderer) skgridRender(skRem skgrid.Driver, frameRate int, done chan struct{}) {
-	defer skRem.Close()
+func (r *renderer) gridRender(g skgrid.Grid, frameRate int, done chan struct{}) {
+	defer g.Close()
 	defer close(done)
 
-	skGrid := skgrid.NewGrid(60, 16, skRem)
-
-	render := make(chan struct{})
-	frames := r.Render(done, render)
-
-	xinput := make([]float64, skGrid.Height/2)
-	for i := range xinput {
-		xinput[i] = 1 - 2*float64(i)/float64(skGrid.Height)
-	}
-	warpIndices := func(warp float64) []int {
-		ws := fs.DefaultParameters.WarpScale
-		wo := fs.DefaultParameters.WarpOffset
-		warp = wo + ws*math.Abs(warp)
-		wv := make([]int, skGrid.Height)
-		b := skGrid.Height / 2
-		for i := 0; i < skGrid.Height/2; i++ {
-			scaled := 1 - math.Pow(xinput[i], warp)
-			xp := scaled * float64(skGrid.Height/2)
-			wv[b-i] = b - int(xp+0.5)
-			wv[b+i] = b + int(xp+0.5)
-		}
-		return wv
-	}
-	scaleIndex := func(y int, scale float64) int {
-		yi := 1 - float64(y)/float64(skGrid.Width)
-		warp := fs.DefaultParameters.Scale * scale
-		scaled := 1 - math.Pow(yi, warp)
-		return int((float64(skGrid.Width) * scaled) + .5)
-	}
-
-	delay := time.Second / time.Duration(frameRate)
-	ticker := time.NewTicker(delay)
-
-	for {
-		<-ticker.C
-		render <- struct{}{}
-		frame := <-frames
-		if frame == nil {
-			break
-		}
-		img := resize.Resize(uint(skGrid.Height), uint(skGrid.Width),
-			frame.img, resize.NearestNeighbor)
-
-		wvs := make([][]int, skGrid.Width)
-		yv := make([]int, skGrid.Width)
-		for i := range wvs {
-			wvs[i] = warpIndices(float64(frame.warp[i]))
-			yv[i] = scaleIndex(i, float64(frame.scale))
-		}
-
-		for y := 0; y < 60; y++ {
-			for x := 0; x < 16; x++ {
-				px := img.At(x, skGrid.Width-1-y).(color.RGBA)
-				px.G /= 2
-				px.B /= 2
-				px.A = uint8(float64(px.A)/8 + 0.5)
-
-				xstart := 0
-				if x != 0 {
-					xstart = wvs[y][x]
-				}
-				xend := skGrid.Height
-				if x != skGrid.Height-1 {
-					//log.Println(y, x, wvs[y])
-					xend = wvs[y][x+1]
-				}
-
-				ystart := yv[y]
-				yend := skGrid.Width
-				if y != skGrid.Width-1 {
-					yend = yv[y+1]
-				}
-
-				if xend > xstart && yend > ystart {
-					for j := ystart; j < yend; j++ {
-						for k := xstart; k < xend; k++ {
-							skGrid.Pixel(j, k, px)
-						}
-					}
-				}
-			}
-		}
-
-		if err := skGrid.Show(); err != nil {
-			log.Println("sk grid error!", err)
-			break
-		}
-	}
-}
-
-func (r *renderer) flaschenRender(fl *flaschen.Flaschen, frameRate int, done chan struct{}) {
-	defer fl.Close()
-	defer close(done)
-
-	rect := fl.Rect()
+	rect := g.Rect()
 	width := rect.Dx()
 	height := rect.Dy()
 
@@ -304,7 +209,7 @@ func (r *renderer) flaschenRender(fl *flaschen.Flaschen, frameRate int, done cha
 	}
 	scaleIndex := func(y int, scale float64) int {
 		yi := 1 - float64(y)/float64(height)
-		warp := 1.0 //fs.DefaultParameters.Scale * scale
+		warp := fs.DefaultParameters.Scale * scale
 		scaled := 1 - math.Pow(yi, warp)
 		return int((float64(height) * scaled) + .5)
 	}
@@ -353,15 +258,15 @@ func (r *renderer) flaschenRender(fl *flaschen.Flaschen, frameRate int, done cha
 					// fmt.Println(xstart, xend, ystart, yend)
 					for j := ystart; j < yend; j++ {
 						for k := xstart; k < xend; k++ {
-							fl.Pixel(k, height-1-j, px)
+							g.Pixel(k, height-1-j, px)
 						}
 					}
 				}
 			}
 		}
 
-		if err := fl.Show(); err != nil {
-			log.Println("flaschen grid error!", err)
+		if err := g.Show(); err != nil {
+			log.Println("grid error!", err)
 			break
 		}
 	}

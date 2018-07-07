@@ -10,8 +10,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/peragwin/vuzicgo/gfx/flaschen-taschen/api/go"
-
 	"github.com/go-gl/gl/v4.1-core/gl"
 
 	"github.com/peragwin/vuzicgo/audio"
@@ -140,8 +138,15 @@ func main() {
 						"Retrying in 10 seconds...")
 					<-delay.C
 				} else {
+					grid, err := skgrid.NewGrid(16, 60, "skgrid", map[string]interface{}{
+						"transpose": true,
+						"driver":    skRem,
+					})
+					if err != nil {
+						panic(err)
+					}
 					done := make(chan struct{})
-					go rndr.skgridRender(skRem, *frameRate, done)
+					go rndr.gridRender(grid, *frameRate, done)
 					<-done
 				}
 			}
@@ -150,18 +155,16 @@ func main() {
 
 	if *flRemote != "" {
 		go func() {
-			delay := time.NewTicker(10 * time.Second)
-			for {
-				if flRem, err := flaschen.NewFlaschen(45, 35, 10, *flRemote); err != nil {
-					log.Println("[ERROR] could not connect to remote flaschen controller. " +
-						"Retrying in 10 seconds...")
-				} else {
-					done := make(chan struct{})
-					go rndr.flaschenRender(flRem, *frameRate, done)
-					<-done
-				}
-				<-delay.C
+			grid, err := skgrid.NewGrid(45, 32, "flaschen", map[string]interface{}{
+				"layer":  0,
+				"remote": *flRemote,
+			})
+			if err != nil {
+				panic(err)
 			}
+			done := make(chan struct{})
+			go rndr.gridRender(grid, *frameRate, done)
+			<-done
 		}()
 	}
 
@@ -170,8 +173,15 @@ func main() {
 			if pi, err := skgrid.NewPiLocal(8e6); err != nil {
 				log.Println("[ERROR] could not initialize raspberry pi:", err)
 			} else {
+				grid, err := skgrid.NewGrid(16, 60, "skgrid", map[string]interface{}{
+					"transpose": true,
+					"driver":    pi,
+				})
+				if err != nil {
+					panic(err)
+				}
 				done := make(chan struct{})
-				go rndr.skgridRender(pi, *frameRate, done)
+				go rndr.gridRender(grid, *frameRate, done)
 				<-done
 			}
 		}()
