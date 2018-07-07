@@ -35,11 +35,13 @@ var (
 	buckets = flag.Int("buckets", 64, "number of frequency buckets")
 	columns = flag.Int("columns", 16, "number of cells per row")
 
-	headless = flag.Bool("headless", false, "run without initializing OpenGL display")
-	mode     = flag.Int("mode", fs.NormalMode, "which mode: 0=Normal, 1=Animate")
-	remote   = flag.String("remote", "", "ip:port of remote grid")
-	flRemote = flag.String("fl-remote", "", "ip:port of flaschen grid")
-	pilocal  = flag.Bool("pilocal", false, "use raspberry pi's SPI output")
+	headless  = flag.Bool("headless", false, "run without initializing OpenGL display")
+	mode      = flag.Int("mode", fs.NormalMode, "which mode: 0=Normal, 1=Animate")
+	remote    = flag.String("remote", "", "ip:port of remote grid")
+	flRemote  = flag.String("fl-remote", "", "ip:port of flaschen grid")
+	pilocal   = flag.Bool("pilocal", false, "use raspberry pi's SPI output")
+	frameRate = flag.Int("frame-rate", 30,
+		"frame rate to target when rendering to something other than opengl")
 )
 
 func initGfx(done chan struct{}) *warpgrid.Grid {
@@ -139,7 +141,7 @@ func main() {
 					<-delay.C
 				} else {
 					done := make(chan struct{})
-					go rndr.skgridRender(skRem, done)
+					go rndr.skgridRender(skRem, *frameRate, done)
 					<-done
 				}
 			}
@@ -155,7 +157,7 @@ func main() {
 						"Retrying in 10 seconds...")
 				} else {
 					done := make(chan struct{})
-					go rndr.flaschenRender(flRem, done)
+					go rndr.flaschenRender(flRem, *frameRate, done)
 					<-done
 				}
 				<-delay.C
@@ -169,7 +171,7 @@ func main() {
 				log.Println("[ERROR] could not initialize raspberry pi:", err)
 			} else {
 				done := make(chan struct{})
-				go rndr.skgridRender(pi, done)
+				go rndr.skgridRender(pi, *frameRate, done)
 				<-done
 			}
 		}()
