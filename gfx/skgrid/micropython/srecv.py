@@ -26,6 +26,8 @@ class SocketReceiver:
             self.ifconfig = sta_if.ifconfig()
             print(self.ifconfig)
         else:
+            sta_if.disconnect()
+            sta_if.active(False)
             print("Connection not established..")
             print("Configured in AP mode")
             self.ifconfig = ap_if.ifconfig()
