@@ -3,11 +3,10 @@ package audio
 import (
 	"context"
 	"testing"
-	"time"
 )
 
 func TestNewSource(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	out, errc := NewSource(ctx, &Config{
@@ -26,6 +25,9 @@ func TestNewSource(t *testing.T) {
 				t.Fatal(err)
 			}
 			n++
+			if n > 1000 {
+				cancel()
+			}
 		}
 	}()
 

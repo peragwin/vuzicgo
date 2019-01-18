@@ -61,8 +61,9 @@ func (v *variableGainController) apply(input []float64) {
 
 	for i := range e {
 		//e[i] = sigmoidCurve(1 - v.frame.AtVec(i))
-		e[i] = quadraticCurve(1 - v.frame.AtVec(i))
-		//e[i] = logCurve(.0000001 + v.frame.AtVec(i))
+		//e[i] = quadraticCurve(1 - v.frame.AtVec(i))
+		e[i] = logCurve(.0000001 + v.frame.AtVec(i))
+		//e[i] = errCurve(v.frame.AtVec(i) - 1)
 	}
 
 	for i := range e {
@@ -105,4 +106,12 @@ func logCurve(x float64) float64 {
 		sign = -1.0
 	}
 	return sign * (math.Log2(math.Abs(x)))
+}
+
+func errCurve(x float64) float64 {
+	if x > 0 {
+		return -1 * x * x
+	} else {
+		return math.Log2(1.0000001 - x)
+	}
 }

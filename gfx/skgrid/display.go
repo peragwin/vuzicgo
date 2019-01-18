@@ -94,6 +94,12 @@ func (s *skGrid) Fill(col color.RGBA) {
 }
 
 func (s *skGrid) Pixel(x, y int, col color.RGBA) {
+	// adjust B/G channels to match R
+	col.G /= 2
+	col.B /= 2
+	// limit alpha to 32 (256/8)
+	col.A = uint8(float64(col.A)/8 + 0.5)
+
 	// skgrid is wired like a snake so we have to flip every other column
 	if x%2 == 1 {
 		y = s.Height - 1 - y

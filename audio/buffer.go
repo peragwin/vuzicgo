@@ -1,45 +1,50 @@
 package audio
 
-// Buffer turns every incoming frame into two outgoing frames which overlap by 50%.
+import (
+	"log"
+
+	"github.com/peragwin/vuzicgo/audio/util"
+)
+
+// Buffer turns every incoming frame into overlapping outgoing frames of the given size.
+// @size must be strictly >= the size of the input, which is calculated from the first frame.
 // It also converts the float32 input from a raw audio source to float64 so it's easier
 // to work with down the line using go's math package.
-func Buffer(done chan struct{}, in <-chan []float32) chan []float64 {
+func Buffer(done chan struct{}, in <-chan []float32, size int) chan []float64 {
 
-	out := make(chan []float64, 2)
-
-	x := <-in
-	frameSize := len(x)
+	out := make(chan []float64, 16) // allocate a small buffer for
 
 	go func() {
 		defer close(out)
-		y := make([]float64, frameSize*2)
-		bufferIndex := 0
+		var (
+			x      []float32
+			y      []float64
+			buffer = util.NewRingBuffer(size)
+		)
+
 		for {
 			select {
 			case <-done:
 				return
-			default:
-			}
-			x = <-in
-			if x == nil {
-				return
-			}
+			case x = <-in:
+				if x == nil {
+					return
+				}
+				if y == nil {
+					y = make([]float64, len(x))
+				}
 
-			offset := bufferIndex * frameSize
-			for i := range x {
-				y[i+offset] = float64(x[i])
-			}
-			if bufferIndex == 1 {
-				// z := y[frameSize/2 : 2*frameSize-frameSize/2]
-				// out <- z
-				out <- y[frameSize:]
-			} else {
-				// z := append(y[2*frameSize-frameSize/2:], y[:frameSize/2]...)
-				// out <- z
-				out <- y[:frameSize]
-			}
+				for i := range x {
+					y[i] = float64(x[i])
+				}
+				buffer.Push(y)
 
-			bufferIndex ^= 1
+				select {
+				case out <- buffer.Get(size):
+				default:
+					log.Println("[WARNING] Input buffer overrun! Frame was dropped.")
+				}
+			}
 		}
 	}()
 
