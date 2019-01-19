@@ -21,7 +21,7 @@ import (
 
 const (
 	sampleFrame = 256
-	frameSize   = 4096
+	frameSize   = 1024
 	sampleRate  = 48000 //44100
 
 	textureMode = gl.LINEAR
@@ -41,6 +41,8 @@ var (
 	pilocal   = flag.Bool("pilocal", false, "use raspberry pi's SPI output")
 	frameRate = flag.Int("frame-rate", 30,
 		"frame rate to target when rendering to something other than opengl")
+
+	httpDir = flag.String("http-dir", "./client/build", "where to host static client gui files")
 )
 
 func initGfx(done chan struct{}) *warpgrid.Grid {
@@ -221,7 +223,7 @@ func main() {
 			json.NewEncoder(w).Encode(res)
 		})
 
-		http.Handle("/", http.FileServer(http.Dir("./client/build")))
+		http.Handle("/", http.FileServer(http.Dir(*httpDir)))
 
 		http.ListenAndServe(":8080", nil)
 	}()
