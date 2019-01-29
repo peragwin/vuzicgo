@@ -43,6 +43,8 @@ var (
 
 	frameSize = flag.Int("frame-size", 1024,
 		"size of process frames. must be multiple of 256")
+
+	httpDir = flag.String("http-dir", "./client/build", "where to host static client gui files")
 )
 
 func initGfx(done chan struct{}) *warpgrid.Grid {
@@ -228,7 +230,7 @@ func main() {
 			json.NewEncoder(w).Encode(res)
 		})
 
-		http.Handle("/", http.FileServer(http.Dir("./client/build")))
+		http.Handle("/", http.FileServer(http.Dir(*httpDir)))
 
 		http.ListenAndServe(":8080", nil)
 	}()
