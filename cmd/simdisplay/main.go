@@ -21,7 +21,6 @@ import (
 
 const (
 	sampleFrame = 256
-	frameSize   = 4096
 	sampleRate  = 48000 //44100
 
 	textureMode = gl.LINEAR
@@ -41,6 +40,9 @@ var (
 	pilocal   = flag.Bool("pilocal", false, "use raspberry pi's SPI output")
 	frameRate = flag.Int("frame-rate", 30,
 		"frame rate to target when rendering to something other than opengl")
+
+	frameSize = flag.Int("frame-size", 1024,
+		"size of process frames. must be multiple of 256")
 )
 
 func initGfx(done chan struct{}) *warpgrid.Grid {
@@ -60,6 +62,11 @@ func initGfx(done chan struct{}) *warpgrid.Grid {
 
 func main() {
 	flag.Parse()
+
+	fsize := *frameSize
+	if fsize%sampleFrame != 0 {
+		log.Fatalf("frame size must be multiple of %d", sampleFrame)
+	}
 
 	render := make(chan struct{})
 	defer close(render)
@@ -89,9 +96,9 @@ func main() {
 		log.Fatal(err)
 	}()
 
-	source64 := audio.Buffer(done, source, frameSize)
+	source64 := audio.Buffer(done, source, fsize)
 
-	fftProc := fft.NewFFTProcessor(sampleRate, frameSize)
+	fftProc := fft.NewFFTProcessor(sampleRate, fsize)
 	fftOut := fftProc.Process(done, source64)
 
 	specProc := new(fft.PowerSpectrumProcessor)

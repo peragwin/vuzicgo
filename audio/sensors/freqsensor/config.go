@@ -22,9 +22,17 @@ const (
 type Parameters struct {
 	GlobalBrightness float64 `json:"gbr"`
 	Brightness       float64 `json:"br"`
+	SaturationOffset float64 `json:"satOffset"`
+	ValueOffset1     float64 `json:"valueOffset1"`
+	ValueOffset2     float64 `json:"valueOffset2"`
+	Alpha            float64 `json:"alpha"`
+	AlphaOffset      float64 `json:"alphaOffset"`
+	AlphaLimit       int     `json:"alphaLimit"`
+
 	Direction        int
 	Gain             float64 `json:"gain"`
 	DifferentialGain float64 `json:"diff"`
+	Preemphasis      float64 `json:"pre"`
 	Offset           float64 `json:"offset"`
 	Period           int     `json:"period"`
 	Sync             float64 `json:"sync"`
@@ -33,7 +41,8 @@ type Parameters struct {
 	WarpOffset float64 `json:"warpOffset"`
 	WarpScale  float64 `json:"warpScale"`
 
-	Scale float64 `json:"scale"`
+	Scale       float64 `json:"scale"`
+	ScaleOffset float64 `json:"scaleOffset"`
 
 	Debug bool `json:"debug"`
 }

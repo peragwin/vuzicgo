@@ -138,14 +138,19 @@ func (r *renderer) renderColumn(col int) []color.RGBA {
 func getHSV(params *fs.Parameters, amp, ph, phi float64) color.RGBA {
 	br := params.Brightness
 	gbr := params.GlobalBrightness
+	so := params.SaturationOffset
+	vo1 := params.ValueOffset1
+	vo2 := params.ValueOffset2
+	alpha := params.Alpha
+	ao := params.AlphaOffset
 
 	hue := math.Mod((ph+phi)*180/math.Pi, 360)
 	if hue < 0 {
 		hue += 360
 	}
-	sat := fs.Sigmoid(br - 2 + amp)
-	val := fs.Sigmoid(gbr/255*(1+amp) - 4)
-	al := fs.Sigmoid(.25*amp - 4)
+	sat := fs.Sigmoid(br + so + amp)
+	val := fs.Sigmoid(gbr/255*(vo1+amp) + vo2)
+	al := fs.Sigmoid(alpha*amp + ao)
 
 	r, g, b := colorful.Hsv(hue, sat, val).RGB255()
 	return color.RGBA{r, g, b, uint8(256 * al)}
@@ -210,8 +215,9 @@ func (r *renderer) gridRender(g skgrid.Grid, frameRate int, done chan struct{}) 
 	scaleIndex := func(y int, scale float64) int {
 		yi := 1 - float64(y)/float64(height) // was 1 - float64(y) / ..
 		warp := fs.DefaultParameters.Scale * scale
+		offset := fs.DefaultParameters.ScaleOffset
 		scaled := 1 - math.Pow(yi, warp)
-		return int((float64(height) * scaled) + .5)
+		return int((float64(height) * scaled) + offset)
 	}
 
 	delay := time.Second / time.Duration(frameRate)
