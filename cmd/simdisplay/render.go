@@ -427,7 +427,7 @@ func (r *renderer) gridRender2(g skgrid.Grid, frameRate int, done chan struct{})
 
 		for y := 0; y < height; y++ {
 			for x := 0; x < width; x++ {
-				px := img.At(x, height-1-y).(color.RGBA)
+				px := img.At(x, y).(color.RGBA)
 
 				xstart := 0
 				if x != 0 {

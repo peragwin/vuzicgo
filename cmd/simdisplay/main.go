@@ -42,6 +42,9 @@ var (
 	pilocal   = flag.Bool("pilocal", false, "use raspberry pi's SPI output")
 	frameRate = flag.Int("frame-rate", 30,
 		"frame rate to target when rendering to something other than opengl")
+	lowLatency  = flag.Bool("low-latency", false, "use lower audio latency")
+	audioDevice = flag.Int("audio-device", -1, "select a specific audio device")
+	listDevices = flag.Bool("list-devices", false, "display a list of audio devices")
 
 	frameSize = flag.Int("frame-size", 1024,
 		"size of process frames. must be multiple of 256")
@@ -92,9 +95,12 @@ func main() {
 	defer cancel()
 
 	source, errc := audio.NewSource(ctx, &audio.Config{
-		BlockSize:  sampleFrame,
-		SampleRate: sampleRate,
-		Channels:   1,
+		BlockSize:    sampleFrame,
+		SampleRate:   sampleRate,
+		Channels:     1,
+		LowLatency:   *lowLatency,
+		DeviceID:     *audioDevice,
+		PrintDevices: *listDevices,
 	})
 
 	// watch for errors

@@ -16,6 +16,12 @@ type Config struct {
 	Channels int
 	// SampleRate is the sample rate (Fs).
 	SampleRate float64
+	// Device ID selects which audio device to use
+	DeviceID int
+	// PrintDevices prints the current audio devices then exits
+	PrintDevices bool
+	// LowLatency selects whether to use low latency for the audio source
+	LowLatency bool
 }
 
 // NewSource initializes a new streaming source with portaudio and returns a channel on which
@@ -33,31 +39,39 @@ func NewSource(ctx context.Context, cfg *Config) (<-chan []float32, <-chan error
 
 		in := make([]float32, cfg.BlockSize)
 
-		// devices, err := portaudio.Devices()
-		// if err != nil {
-		// 	errc <- err
-		// 	return
-		// }
-		// devID := 0
-		// for i, dev := range devices {
-		// 	if dev.Name == "default" {
-		// 		devID = i
-		// 	}
-		// }
-		// stream, err := portaudio.OpenStream(portaudio.StreamParameters{
-		// 	Input: portaudio.StreamDeviceParameters{
-		// 		Device:   devices[devID],
-		// 		Channels: 1,
-		// 		Latency:  devices[devID].DefaultHighInputLatency,
-		// 	},
-		// 	SampleRate:      cfg.SampleRate,
-		// 	FramesPerBuffer: cfg.BlockSize,
-		// }, in)
-		stream, err := portaudio.OpenDefaultStream(
-			cfg.Channels, 0, cfg.SampleRate, cfg.BlockSize, in)
-		if err != nil {
-			errc <- fmt.Errorf("Error opening stream: %v", err)
-			return
+		var stream *portaudio.Stream
+		var err error
+		if cfg.DeviceID != -1 || cfg.PrintDevices {
+			devices, err := portaudio.Devices()
+			if err != nil {
+				errc <- err
+				return
+			}
+			for _, dev := range devices {
+				fmt.Println("Device:", dev)
+				return
+			}
+			params := portaudio.StreamDeviceParameters{
+				Device:   devices[cfg.DeviceID],
+				Channels: 1,
+				Latency:  devices[cfg.DeviceID].DefaultHighInputLatency,
+			}
+			if cfg.LowLatency {
+				params.Latency = devices[cfg.DeviceID].DefaultLowInputLatency
+			}
+			stream, err = portaudio.OpenStream(portaudio.StreamParameters{
+				Input:           params,
+				SampleRate:      cfg.SampleRate,
+				FramesPerBuffer: cfg.BlockSize,
+			}, in)
+
+		} else {
+			stream, err = portaudio.OpenDefaultStream(
+				cfg.Channels, 0, cfg.SampleRate, cfg.BlockSize, in)
+			if err != nil {
+				errc <- fmt.Errorf("Error opening stream: %v", err)
+				return
+			}
 		}
 		defer stream.Close()
 		if err := stream.Start(); err != nil {
