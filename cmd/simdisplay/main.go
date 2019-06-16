@@ -151,8 +151,10 @@ func main() {
 
 			wos := float32(fs.DefaultParameters.WarpOffset)
 			ws := float32(fs.DefaultParameters.WarpScale)
+			h = len(rv.warp) / 2
 			for i, w := range rv.warp {
-				w = wos + ws*w
+				wss := 1 - math.Abs(float64(h)-float64(i)/2)/float64(h)
+				w = wos + float32(wss)*ws*w
 				g.SetWarp(i, w)
 				if *mirror {
 					g.SetWarp(2*len(rv.warp)-1-i, w)
