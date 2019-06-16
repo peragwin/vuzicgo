@@ -24,12 +24,17 @@ const (
 	void main() {
 		x = vertPos.x;
 		if (x <= 0) {
-			x = pow((x + 1), warp) - 1;
+			x = pow(x + 1, warp) - 1;
 		} else {
 			x = 1 - pow(abs(x - 1), warp);
 		}
+
 		y = vertPos.y;
-		y = 1 - 2 * pow(1-(y+1)/2, scale);
+		if (y <= 0) {
+			y = pow(y + 1, scale) - 1;
+		} else {
+			y = 1 - pow(abs(y - 1), scale);
+		}
 
 		fragTexPos = texPos;
 		gl_Position = vec4(x, y, vertPos.z, 1.0);
@@ -114,7 +119,7 @@ type Grid struct {
 	rows    int
 	columns int
 	warp    []float32
-	scale   float32
+	scale   []float32
 
 	image   *image.RGBA
 	texture *gfx.TextureObject
@@ -188,6 +193,10 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 	for i := range warp {
 		warp[i] = 1.0
 	}
+	scale := make([]float32, cfg.Columns)
+	for i := range scale {
+		scale[i] = 1.0
+	}
 
 	grid := &Grid{
 		rows:    cfg.Rows,
@@ -198,7 +207,7 @@ func NewGrid(done chan struct{}, cfg *Config) (*Grid, error) {
 		render:  cfg.Render,
 
 		warp:  warp,
-		scale: 1.0,
+		scale: scale,
 
 		Gfx:  g,
 		Done: done,
@@ -219,8 +228,8 @@ func (g *Grid) Start() {
 		if g.render != nil {
 			g.render(g)
 		}
-		uloc := fx.GetUniformLocation("scale")
-		gl.Uniform1f(uloc, g.scale)
+		// uloc := fx.GetUniformLocation("scale")
+		// gl.Uniform1f(uloc, g.scale)
 		g.drawTexture(fx)
 	})
 }
@@ -254,7 +263,8 @@ func (g *Grid) getColorIndex(i, j int) int {
 func (g *Grid) createCells(columns, rows int, ctx *gfx.Context) error {
 	//verts := make([]float32, 5*len(square)*columns*rows)
 
-	uloc := ctx.GetUniformLocation("warp")
+	wuloc := ctx.GetUniformLocation("warp")
+	suloc := ctx.GetUniformLocation("scale")
 
 	sx, sy := 1.0/float32(columns), 1.0/float32(rows)
 	vscale := ml.Scale3D(sx, sy, 1)
@@ -262,7 +272,7 @@ func (g *Grid) createCells(columns, rows int, ctx *gfx.Context) error {
 
 	var x, y float32
 	for y = 0.0; y < float32(rows); y++ {
-		verts := make([]float32, 5*len(square)*columns)
+		//verts := make([]float32, 5*len(square)*columns)
 		for x = 0.0; x < float32(columns); x++ {
 			tx := sx * (1 + 2*(x-float32(columns)/2))
 			ty := sy * -(1 + 2*(y-float32(rows)/2))
@@ -273,6 +283,7 @@ func (g *Grid) createCells(columns, rows int, ctx *gfx.Context) error {
 
 			utrans := ml.Translate2D(tx, ty)
 
+			verts := make([]float32, 5*len(square))
 			for i := range square {
 				vec := ml.Vec4{square[i][0], square[i][1], 0, 1}
 				vec = vtrans.Mul4x1(vscale.Mul4x1(vec))
@@ -280,8 +291,7 @@ func (g *Grid) createCells(columns, rows int, ctx *gfx.Context) error {
 				tex := ml.Vec3{uvCord[i][0], uvCord[i][1], 1}
 				tex = utrans.Mul3x1(uscale.Mul3x1(tex))
 
-				cellNum := int(x)
-				idx := 5 * (i + len(square)*cellNum)
+				idx := 5 * i //(i + len(square)*cellNum)
 
 				// if idx < 30 {
 				// 	// fmt.Println("utrans")
@@ -290,25 +300,29 @@ func (g *Grid) createCells(columns, rows int, ctx *gfx.Context) error {
 				// 	// fmt.Println(uscale)
 				// 	fmt.Println(idx, len(verts), vec, tex)
 				// }
+
 				copy(verts[idx:idx+3], vec[:3])
 				copy(verts[idx+3:idx+5], tex[:2])
+				// 	}
+				// }
 			}
-		}
-		rowNum := int(y) //func () func(*gfx.Context) {
-		// rowNum := int(y)
-		if err := ctx.AddVertexArrayObject(&gfx.VAOConfig{
-			Vertices:   verts,
-			Size:       3,
-			GLDrawType: gl.TRIANGLE_STRIP,
-			VertAttr:   "vertPos",
-			TexAttr:    "texPos",
-			Stride:     5,
-			OnDraw: func(fx *gfx.Context) bool {
-				gl.Uniform1f(uloc, g.warp[rowNum])
-				return true
-			},
-		}); err != nil {
-			return err
+			cellNum := int(x)
+			rowNum := int(y)
+			if err := ctx.AddVertexArrayObject(&gfx.VAOConfig{
+				Vertices:   verts,
+				Size:       3,
+				GLDrawType: gl.TRIANGLE_STRIP,
+				VertAttr:   "vertPos",
+				TexAttr:    "texPos",
+				Stride:     5,
+				OnDraw: func(fx *gfx.Context) bool {
+					gl.Uniform1f(wuloc, g.warp[rowNum])
+					gl.Uniform1f(suloc, g.scale[cellNum])
+					return true
+				},
+			}); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -325,6 +339,6 @@ func (g *Grid) SetWarp(i int, w float32) {
 	g.warp[i] = w
 }
 
-func (g *Grid) SetScale(s float32) {
-	g.scale = s
+func (g *Grid) SetScale(i int, s float32) {
+	g.scale[i] = s
 }

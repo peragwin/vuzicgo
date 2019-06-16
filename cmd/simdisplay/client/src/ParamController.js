@@ -51,6 +51,7 @@ export const paramQuery = gql`
       warpScale
       warpOffset
       scale
+      scaleOffset
     }
   }`
 
@@ -74,6 +75,7 @@ export const paramMut = gql`
       warpScale
       warpOffset
       scale
+      scaleOffset
     }
   }
 `

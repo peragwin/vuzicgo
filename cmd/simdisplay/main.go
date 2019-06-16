@@ -6,6 +6,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+	"math"
 	"net/http"
 	"runtime"
 	"time"
@@ -21,7 +22,7 @@ import (
 
 const (
 	sampleFrame = 256
-	sampleRate  = 48000 //44100
+	sampleRate  = 44100
 
 	textureMode = gl.LINEAR
 )
@@ -32,6 +33,7 @@ var (
 
 	buckets = flag.Int("buckets", 64, "number of frequency buckets")
 	columns = flag.Int("columns", 16, "number of cells per row")
+	mirror  = flag.Bool("mirror", false, "display mirrored rows")
 
 	headless  = flag.Bool("headless", false, "run without initializing OpenGL display")
 	mode      = flag.Int("mode", fs.NormalMode, "which mode: 0=Normal, 1=Animate")
@@ -50,8 +52,12 @@ var (
 func initGfx(done chan struct{}) *warpgrid.Grid {
 	runtime.LockOSThread()
 
+	rows := *buckets
+	if *mirror {
+		rows *= 2
+	}
 	g, err := warpgrid.NewGrid(done, &warpgrid.Config{
-		Rows: *buckets, Columns: *columns,
+		Rows: rows, Columns: *columns,
 		Width: *width, Height: *height,
 		Title:       "Sim LED Display",
 		TextureMode: textureMode,
@@ -122,7 +128,7 @@ func main() {
 		}
 	}()
 
-	rndr := newRenderer(*columns, fs.DefaultParameters, f)
+	rndr := newRenderer(*columns, *mirror, fs.DefaultParameters, f)
 	frames := rndr.Render(done, render)
 
 	if !*headless {
@@ -130,9 +136,27 @@ func main() {
 			render <- struct{}{}
 			rv := <-frames
 			g.SetImage(rv.img)
-			g.SetScale(rv.scale)
+
+			sos := float32(fs.DefaultParameters.ScaleOffset)
+			ss := float32(fs.DefaultParameters.Scale)
+			h := len(rv.scale) / 2
+			// fmt.Println("")
+			for i := 0; i < h; i++ {
+				sss := 1 - math.Abs(float64(h)-float64(i)/2)/float64(h)
+				// fmt.Println(sss)
+				s := sos + ss*float32(sss)*rv.scale[i]
+				g.SetScale(h+i, s)
+				g.SetScale(h-i-1, s)
+			}
+
+			wos := float32(fs.DefaultParameters.WarpOffset)
+			ws := float32(fs.DefaultParameters.WarpScale)
 			for i, w := range rv.warp {
+				w = wos + ws*w
 				g.SetWarp(i, w)
+				if *mirror {
+					g.SetWarp(2*len(rv.warp)-1-i, w)
+				}
 			}
 		})
 	}
@@ -165,7 +189,7 @@ func main() {
 
 	if *flRemote != "" {
 		go func() {
-			grid, err := skgrid.NewGrid(45, 32, "flaschen", map[string]interface{}{
+			grid, err := skgrid.NewGrid(60, 16, "flaschen", map[string]interface{}{
 				"layer":  0,
 				"remote": *flRemote,
 			})
@@ -173,7 +197,7 @@ func main() {
 				panic(err)
 			}
 			done := make(chan struct{})
-			go rndr.gridRender(grid, *frameRate, done)
+			go rndr.gridRender2(grid, *frameRate, done)
 			<-done
 		}()
 	}
@@ -191,7 +215,7 @@ func main() {
 					panic(err)
 				}
 				done := make(chan struct{})
-				go rndr.gridRender(grid, *frameRate, done)
+				go rndr.gridRender2(grid, *frameRate, done)
 				<-done
 			}
 		}()
