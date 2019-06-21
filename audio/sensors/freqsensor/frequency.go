@@ -32,12 +32,19 @@ var (
 		Offset:           0,
 		Period:           24,
 		Gain:             2,
-		DifferentialGain: 2e-3,
-		Sync:             1e-2,
+		Preemphasis:      16,
+		DifferentialGain: 5e-3,
+		Sync:             5e-3,
 		Mode:             AnimateMode,
 		WarpOffset:       0.5,
 		WarpScale:        1.0,
 		Scale:            1.0,
+		SaturationOffset: -2.0,
+		ValueOffset1:     1.0,
+		ValueOffset2:     -4.0,
+		Alpha:            0.25,
+		AlphaOffset:      -4.0,
+		ScaleOffset:      0.5,
 	}
 )
 
@@ -64,7 +71,6 @@ type FrequencySensor struct {
 	filterParams filterValues
 	filterValues filterValues
 	vgc          *variableGainController
-	preemphasis  float64
 
 	schema graphql.Schema
 
@@ -91,8 +97,7 @@ func NewFrequencySensor(cfg *Config) *FrequencySensor {
 			gain: mat.NewDense(2, cfg.Buckets, nil),
 			diff: mat.NewDense(2, cfg.Buckets, nil),
 		},
-		vgc:         newVariableGainController(cfg.Buckets, defaultVGCParams),
-		preemphasis: 16,
+		vgc: newVariableGainController(cfg.Buckets, defaultVGCParams),
 	}
 	if err := fs.initGraphql(); err != nil {
 		panic(err)
@@ -344,7 +349,7 @@ func (d *FrequencySensor) applyBase(frame []float64) {
 }
 
 func (d *FrequencySensor) applyPreemphasis(frame []float64) {
-	incr := (d.preemphasis - 1) / float64(d.Buckets)
+	incr := (d.params.Preemphasis - 1) / float64(d.Buckets)
 	for i := range frame {
 		frame[i] *= 1 + float64(i)*incr
 	}
