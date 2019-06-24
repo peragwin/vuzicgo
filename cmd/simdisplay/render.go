@@ -10,7 +10,6 @@ import (
 	"time"
 
 	colorful "github.com/lucasb-eyer/go-colorful"
-	"github.com/nfnt/resize"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
 	"github.com/peragwin/vuzicgo/gfx/skgrid"
 )
@@ -109,9 +108,9 @@ func (r *renderer) render() {
 			c.G = uint8(float64(c.G) * v)
 			c.B = uint8(float64(c.B) * v)
 			if r.mirror {
-				r.display.SetRGBA(hl+i, r.rows+j, c)
-				r.display.SetRGBA(hl+i, r.rows-1-j, c)
-				r.display.SetRGBA(hl-1-i, r.rows+j, c)
+				// r.display.SetRGBA(hl+i, r.rows+j, c)
+				// r.display.SetRGBA(hl+i, r.rows-1-j, c)
+				// r.display.SetRGBA(hl-1-i, r.rows+j, c)
 				r.display.SetRGBA(hl-1-i, r.rows-1-j, c)
 			} else {
 				r.display.SetRGBA(hl+i, r.rows-j-1, c)
@@ -301,7 +300,17 @@ func (r *renderer) gridRender2(g skgrid.Grid, frameRate int, done chan struct{})
 	delay := time.Second / time.Duration(frameRate)
 	ticker := time.NewTicker(delay)
 
+	frameCount := 0
+	go func() {
+		t := time.NewTicker(time.Second)
+		for _ = range t.C {
+			log.Println("[Info] FPS:", frameCount)
+			frameCount = 0
+		}
+	}()
+
 	for {
+		frameCount++
 		<-ticker.C
 		render <- struct{}{}
 		frame := <-frames
@@ -353,13 +362,31 @@ func (r *renderer) gridRender2(g skgrid.Grid, frameRate int, done chan struct{})
 			yvs[h-i-1] = wix
 		}
 
-		img := resize.Resize(uint(width), uint(height),
-			frame.img, resize.NearestNeighbor)
+		// img := resize.Resize(uint(width), uint(height),
+		// 	frame.img, resize.NearestNeighbor)
 		// img := frame.img
+		sx := frame.img.Rect.Dx() / width
+		sy := frame.img.Rect.Dy() / height
+		//log.Println("sx sy", sx, sy, frame.img.Rect)
 
-		for y := 0; y < height; y++ {
-			for x := 0; x < width; x++ {
-				px := img.At(x, y).(color.RGBA)
+		// the divide by two is a hack because we are mirrored in both directions
+		for y := 0; y < height/2; y++ {
+			for x := 0; x < width/2; x++ {
+
+				var px color.RGBA
+				for i := 0; i < sx; i++ {
+					for j := 0; j < sy; j++ {
+						p := frame.img.At(x*sx+i, y*sy+j).(color.RGBA)
+						px.A += p.A
+						px.R += p.R
+						px.G += p.G
+						px.B += p.B
+					}
+				}
+				px.A /= uint8(sx * sy)
+				px.R /= uint8(sx * sy)
+				px.G /= uint8(sx * sy)
+				px.B /= uint8(sx * sy)
 
 				xstart := 0
 				if x != 0 {
@@ -384,6 +411,9 @@ func (r *renderer) gridRender2(g skgrid.Grid, frameRate int, done chan struct{})
 					for j := ystart; j < yend; j++ {
 						for k := xstart; k < xend; k++ {
 							g.Pixel(k, j, px)
+							g.Pixel(k, height-1-j, px)
+							g.Pixel(width-1-k, j, px)
+							g.Pixel(width-1-k, height-1-j, px)
 						}
 					}
 				}

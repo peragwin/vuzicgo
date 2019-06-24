@@ -81,8 +81,37 @@ func (v *variableGainController) apply(input []float64) {
 	}
 }
 
+var sigmoidTable = make([]float64, 2000)
+var sigmoidRange = 10.0
+var sigmoidScale = float64(len(sigmoidTable)) / (2 * sigmoidRange)
+
+func init() {
+	hl := len(sigmoidTable) / 2
+	for i := range sigmoidTable {
+		v := float64(i-hl) / sigmoidScale
+		sigmoidTable[i] = 1 / (1 + math.Exp(-v))
+	}
+}
+
 func Sigmoid(x float64) float64 {
-	return 1 / (1 + math.Exp(-x))
+	if x >= sigmoidRange {
+		return sigmoidTable[len(sigmoidTable)-1]
+	} else if x <= -sigmoidRange {
+		return sigmoidTable[0]
+	}
+	idx := int(x*sigmoidScale) + len(sigmoidTable)/2
+	// fmt.Println("sig for", x, idx)
+	return sigmoidTable[idx]
+
+	// if r, ok := sigmoidCache[v]; ok {
+	// 	return r
+	// }
+
+	// log.Println("sigmoid cache miss", v)
+
+	// r := 1 / (1 + math.Exp(-x))
+
+	// return r
 }
 
 func sigmoidCurve(x float64) float64 {
