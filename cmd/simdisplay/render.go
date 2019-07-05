@@ -148,12 +148,17 @@ func (r *renderer) render() {
 
 	r.bass = float32(r.src.Bass)
 
+	sc := len(r.src.Amplitude) / r.columns
 	for i := 0; i < r.columns; i++ {
 		var s float64
-		for _, v := range r.src.Amplitude[i] {
-			// todo: sum with linear scaling to target bass?
-			s += v
+		for j := 0; j < sc; j++ {
+			for _, v := range r.src.Amplitude[sc*i+j] {
+				// todo: sum with linear scaling to target bass?
+				s += v
+			}
 		}
+		s /= float64(sc)
+		s /= float64(len(r.src.Amplitude[sc*i]))
 		r.scale[i] = float32(s)
 	}
 }
@@ -301,13 +306,15 @@ func (r *renderer) gridRender2(g skgrid.Grid, frameRate int, done chan struct{})
 	ticker := time.NewTicker(delay)
 
 	frameCount := 0
-	go func() {
-		t := time.NewTicker(time.Second)
-		for _ = range t.C {
-			log.Println("[Info] FPS:", frameCount)
-			frameCount = 0
-		}
-	}()
+	if r.params.Debug {
+		go func() {
+			t := time.NewTicker(time.Second)
+			for _ = range t.C {
+				log.Println("[Info] FPS:", frameCount)
+				frameCount = 0
+			}
+		}()
+	}
 
 	for {
 		frameCount++

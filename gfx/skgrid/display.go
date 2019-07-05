@@ -4,16 +4,19 @@ import (
 	"errors"
 	"image"
 	"image/color"
+	"log"
+	"sync"
 
 	"github.com/peragwin/vuzicgo/gfx/flaschen-taschen/api/go"
 )
 
 type skGrid struct {
-	Width     int
-	Height    int
-	buffer    []byte
-	driver    Driver
-	transpose bool
+	Width      int
+	Height     int
+	buffer     []byte
+	driver     Driver
+	transpose  bool
+	renderLock sync.Mutex
 }
 
 type Driver interface {
@@ -105,9 +108,9 @@ func (s *skGrid) Pixel(x, y int, col color.RGBA) {
 
 	// skgrid is wired like a snake so we have to flip every other column
 	//if s.transpose {
-		if x%2 == 1 {
-			y = s.Height - 1 - y
-		}
+	if x%2 == 1 {
+		y = s.Height - 1 - y
+	}
 	//} else {
 	//	if y%2 == 1 {
 	//		x = s.Height - 1 - x
@@ -123,7 +126,14 @@ func (s *skGrid) Pixel(x, y int, col color.RGBA) {
 }
 
 func (s *skGrid) Show() error {
-	return s.driver.Send(s.buffer) //[4:4+4*(s.Width*s.Height)])
+	s.renderLock.Lock()
+	go func() {
+		defer s.renderLock.Unlock()
+		if err := s.driver.Send(s.buffer); err != nil {
+			log.Println("[SkGrid] [Error]", err)
+		}
+	}()
+	return nil
 }
 
 func (s *skGrid) Close() error {
