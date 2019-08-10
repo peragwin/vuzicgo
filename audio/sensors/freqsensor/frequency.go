@@ -57,6 +57,8 @@ type Drivers struct {
 	Energy []float64
 	// Bass keeps track of how intense the current base is
 	Bass float64
+	// Scales is a scale that tries to keep the variation of Amplitude between -1 and 1
+	Scales []float64
 }
 
 // FrequencySensor is the main object that generate the visualization
@@ -71,6 +73,11 @@ type FrequencySensor struct {
 	filterValues filterValues
 	vgc          *variableGainController
 
+	valueScales     []float64
+	valueOffsets    []float64
+	valueHistory    []float64
+	valueMaxHistory []float64
+
 	schema graphql.Schema
 
 	frameCount int
@@ -79,14 +86,22 @@ type FrequencySensor struct {
 // NewFrequencySensor creates a new FrequencySensor from a Config
 func NewFrequencySensor(cfg *Config) *FrequencySensor {
 	amp := make([][]float64, cfg.Columns)
+	vos := make([]float64, cfg.Buckets)
+	vhs := make([]float64, cfg.Buckets)
+	vmhs := make([]float64, cfg.Buckets)
+	vss := make([]float64, cfg.Buckets)
 	for i := range amp {
 		amp[i] = make([]float64, cfg.Buckets)
+	}
+	for i := range vos {
+		vos[i], vss[i], vhs[i], vmhs[i] = -1, 1, 1, 1
 	}
 	fs := &FrequencySensor{
 		Frames:  cfg.Columns,
 		Buckets: cfg.Buckets,
 		Drivers: Drivers{
 			Amplitude: amp,
+			Scales:    vss,
 			Energy:    make([]float64, cfg.Buckets),
 			Diff:      make([]float64, cfg.Buckets),
 		},
@@ -97,6 +112,10 @@ func NewFrequencySensor(cfg *Config) *FrequencySensor {
 			diff: mat.NewDense(2, cfg.Buckets, nil),
 		},
 		vgc: newVariableGainController(cfg.Buckets, defaultVGCParams),
+
+		valueOffsets:    vos,
+		valueHistory:    vhs,
+		valueMaxHistory: vmhs,
 	}
 	if err := fs.initGraphql(); err != nil {
 		panic(err)
@@ -132,6 +151,7 @@ func (d *FrequencySensor) Process(done chan struct{}, in chan []float64) chan *D
 			d.applyPreemphasis(x)
 
 			d.applyFilters(x)
+			d.adjustValueRanges(x)
 			d.applyChannelEffects()
 			d.applyChannelSync()
 			d.applyBase(d.Amplitude[0])
@@ -236,6 +256,39 @@ func (d *FrequencySensor) adjustVariableGain(frame []float64) {
 	if d.params.Debug && d.frameCount%200 == 0 {
 		bs, _ := json.Marshal(map[string]interface{}{"vgc.gain": d.vgc.gain})
 		fmt.Println(string(bs))
+	}
+}
+
+func (d *FrequencySensor) adjustValueRanges(frame []float64) {
+	for i := range frame {
+		vh := d.valueHistory[i]
+		vo := d.valueOffsets[i]
+		vs := d.Drivers.Scales[i]
+		vmh := d.valueMaxHistory[i]
+
+		// vo is clamped to -1 instead
+		vh = 0.005*frame[i] + 0.995*vh
+		// e := logCurve(0.000001 - (vh + vo))
+		// vo += .001 * e
+
+		sval := vs * (frame[i] + vo)
+		if sval < 0 {
+			sval = -sval
+		}
+		if sval < vmh {
+			vmh = 0.05*sval + .95*vmh
+		} else {
+			vmh = .001*sval + .999*vmh
+		}
+		if vmh < .001 {
+			vmh = .001
+		}
+		vs = 1 / vmh
+
+		d.valueHistory[i] = vh
+		d.valueOffsets[i] = vo
+		d.valueMaxHistory[i] = vmh
+		d.Drivers.Scales[i] = vs
 	}
 }
 

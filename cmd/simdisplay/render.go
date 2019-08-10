@@ -108,9 +108,9 @@ func (r *renderer) render() {
 			c.G = uint8(float64(c.G) * v)
 			c.B = uint8(float64(c.B) * v)
 			if r.mirror {
-				// r.display.SetRGBA(hl+i, r.rows+j, c)
-				// r.display.SetRGBA(hl+i, r.rows-1-j, c)
-				// r.display.SetRGBA(hl-1-i, r.rows+j, c)
+				r.display.SetRGBA(hl+i, r.rows+j, c)
+				r.display.SetRGBA(hl+i, r.rows-1-j, c)
+				r.display.SetRGBA(hl-1-i, r.rows+j, c)
 				r.display.SetRGBA(hl-1-i, r.rows-1-j, c)
 			} else {
 				r.display.SetRGBA(hl+i, r.rows-j-1, c)
@@ -152,9 +152,9 @@ func (r *renderer) render() {
 	for i := 0; i < r.columns; i++ {
 		var s float64
 		for j := 0; j < sc; j++ {
-			for _, v := range r.src.Amplitude[sc*i+j] {
+			for k, v := range r.src.Amplitude[sc*i+j] {
 				// todo: sum with linear scaling to target bass?
-				s += v
+				s += r.src.Scales[k] * (v - 1)
 			}
 		}
 		s /= float64(sc)
@@ -169,6 +169,7 @@ func (r *renderer) renderColumn(col int) []color.RGBA {
 	if r.params.Mode == fs.AnimateMode {
 		amp = r.src.Amplitude[col]
 	}
+
 	phase := r.src.Energy
 	ws := 2.0 * math.Pi / float64(r.params.Period)
 	phi := ws * float64(col)
@@ -176,8 +177,9 @@ func (r *renderer) renderColumn(col int) []color.RGBA {
 	colors := make([]color.RGBA, r.rows)
 
 	for i, ph := range phase {
+		val := r.src.Scales[i] * (amp[i] - 1)
 		//colors[i] = getRGB(d.params, amp[i], ph, phi)
-		colors[i] = getHSV(r.params, amp[i], ph, phi)
+		colors[i] = getHSV(r.params, val, ph, phi)
 	}
 
 	return colors
