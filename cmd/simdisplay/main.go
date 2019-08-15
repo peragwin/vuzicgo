@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	sampleFrame = 256
+	sampleFrame = 64
 	sampleRate  = 44100
 
 	textureMode = gl.LINEAR
