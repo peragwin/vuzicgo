@@ -128,16 +128,17 @@ func main() {
 	})
 	fsOut := f.Process(done, specOut)
 	// this output isn't needed here so throw it away
+	// XXX added fsOut to render input
 	go func() {
 		for {
 			<-fsOut
 		}
 	}()
-
+	// XXX added fsOut arg
 	rndr := newRenderer(*columns, *mirror, fs.DefaultParameters, f)
-	frames := rndr.Render(done, render)
 
 	if !*headless {
+		frames := rndr.Render(done, render)
 		g.SetRenderFunc(func(g *warpgrid.Grid) {
 			render <- struct{}{}
 			rv := <-frames
@@ -188,7 +189,7 @@ func main() {
 						panic(err)
 					}
 					done := make(chan struct{})
-					go rndr.gridRender(grid, *frameRate, done)
+					go rndr.gridRender2(grid, *frameRate, done)
 					<-done
 				}
 			}
@@ -215,9 +216,9 @@ func main() {
 			if pi, err := skgrid.NewPiLocal(8e6); err != nil {
 				log.Println("[ERROR] could not initialize raspberry pi:", err)
 			} else {
-				grid, err := skgrid.NewGrid(16, 60, "skgrid", map[string]interface{}{
-					"transpose": true,
-					"driver":    pi,
+				grid, err := skgrid.NewGrid(60, 16, "skgrid", map[string]interface{}{
+					//"transpose": true,
+					"driver": pi,
 				})
 				if err != nil {
 					panic(err)

@@ -1,6 +1,7 @@
 package freqsensor
 
 import (
+	"math"
 	"math/rand"
 	"testing"
 
@@ -14,8 +15,8 @@ import (
 
 var testFilterParams = filterValues{
 	gain: mat.NewDense(2, 2, []float64{
-		0.950, 0.100,
-		-0.025, 0.9,
+		0.2, 0.8,
+		0, 0, //-0.01, 0.99,
 	}),
 	diff: mat.NewDense(2, 2, []float64{
 		0.95, 0.10,
@@ -35,14 +36,14 @@ func TestFilter(t *testing.T) {
 				gain: mat.NewDense(2, 1, nil),
 				diff: mat.NewDense(2, 1, nil),
 			},
-			vgc: newVariableGainController(1, []float64{.1, .9}),
+			vgc: newVariableGainController(1, []float64{.001, .999}),
 		}
 	}
 
 	testFilterWithInput := func(t *testing.T, name string, input []float64, size int) {
 		d := newDisplay()
-		d.vgc.kp = 0.5
-		d.vgc.kd = 4
+		d.vgc.kp = 0.005
+		d.vgc.kd = .02
 		output0 := make([]float64, size)
 		output1 := make([]float64, size)
 		gain := make([]float64, size)
@@ -76,16 +77,17 @@ func TestFilter(t *testing.T) {
 	}
 
 	t.Run("Test Impulses", func(t *testing.T) {
-		size := 1024
+		size := 1024 * 16
 		input := make([]float64, size)
 		for i := range input {
 			// if (i/128/8)%2 == 1 {
-			// 	input[i] = math.Sin(2 * math.Pi / 256 * float64(i))
+			input[i] = (1 + math.Sin(2*math.Pi/float64(size)*32*float64(i))) / 2
 			// } else {
 			// 	input[i] = .2 * math.Sin(2*math.Pi/256*float64(i))
 			// }
-			s := (i / 128)
-			input[i] = .1 * (float64(s) / 2 * (float64(s%2) + .001))
+
+			// s := i / size
+			// input[i] = float64((s + 1) % 2) //.1 * (float64(s) / 2 * (float64((s+1)%2) + .001))
 		}
 		testFilterWithInput(t, "testImpulses", input, size)
 	})
@@ -110,8 +112,71 @@ func TestFilter(t *testing.T) {
 	})
 }
 
-func TestFilter2(t *testing.T) {
+func TestValueRanges(t *testing.T) {
+	d := &FrequencySensor{
+		valueHistory:    []float64{1},
+		valueMaxHistory: []float64{1},
+		valueScales:     []float64{1},
+		valueOffsets:    make([]float64, 1),
+	}
 
+	size := 2048
+
+	in := make([]float64, size)
+	for i := range in {
+		in[i] = rand.Float64()
+	}
+	values := make([]float64, size)
+	for i := range values {
+		v := 0.0
+		for j := -5; j < 4; j++ {
+			if (i+j) >= 0 && (i+j) < size {
+				v += in[i+j]
+			}
+		}
+		values[i] = v / 10
+	}
+	// t.Error(values)
+	for i := 1024; i < size; i++ {
+		if (i/64)%2 == 0 {
+			values[i] = 2
+		}
+	}
+
+	vhout := make([]float64, size)
+	vmhout := make([]float64, size)
+	vsout := make([]float64, size)
+	voout := make([]float64, size)
+	out := make([]float64, size)
+	for i := 0; i < size; i++ {
+		d.adjustValueRanges([]float64{values[i]})
+		vhout[i] = d.valueHistory[0]
+		vmhout[i] = d.valueMaxHistory[0]
+		vsout[i] = d.valueScales[0]
+		voout[i] = d.valueOffsets[0]
+
+		out[i] = vsout[i] * (values[i] + voout[i])
+	}
+
+	p, err := plot.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := plotutil.AddLinePoints(p,
+		"Input", newPlotter(values),
+		"ValueHistory", newPlotter(vhout),
+		"ValueMaxHistory", newPlotter(vmhout),
+		"ValueScale", newPlotter(vsout),
+		"ValueOffset", newPlotter(voout),
+		"Output", newPlotter(out),
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := p.Save(16*vg.Inch, 8*vg.Inch, "testValueRange.png"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func newPlotter(data []float64) plotter.XYs {

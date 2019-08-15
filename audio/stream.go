@@ -27,7 +27,7 @@ type Config struct {
 // NewSource initializes a new streaming source with portaudio and returns a channel on which
 // to receive frames.
 func NewSource(ctx context.Context, cfg *Config) (<-chan []float32, <-chan error) {
-	out := make(chan []float32, 4)
+	out := make(chan []float32, 16)
 	errc := make(chan error, 1)
 	done := ctx.Done()
 
@@ -90,7 +90,7 @@ func NewSource(ctx context.Context, cfg *Config) (<-chan []float32, <-chan error
 
 			err := stream.Read()
 			if err != nil {
-				log.Println("[INFO] [Audio]", err)
+				log.Println("[INFO] [Audio]", err, len(out))
 				switch err {
 				case portaudio.InputOverflowed:
 				default:

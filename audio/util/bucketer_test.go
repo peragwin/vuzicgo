@@ -12,26 +12,26 @@ var (
 func TestBucketer(t *testing.T) {
 	// p := int(math.Log2(float64(maxFrameSize / minFrameSize)))
 
-	size := 2048
+	size := 512
 	frame := make([]float64, size)
 	for i := range frame {
-		frame[i] = float64(i) * (22000) / float64(size) //1.0
+		frame[i] = float64(i) * (24000) / float64(size) //1.0
 	}
 
 	// test and print MelScale
-	b := NewBucketer(MelScale, 64, size, 32, 16000)
+	b := NewBucketer(MelScale, 18, size, 32, 16000)
 	t.Error(b.indices)
 	buckets := b.Bucket(frame)
 	t.Log(buckets, len(buckets))
 
 	// test and print LogScale
-	b = NewBucketer(LogScale2, 60, size/2, 32, 16000)
+	b = NewBucketer(LogScale2, 18, size, 32, 16000)
 	t.Error(b.indices)
-	buckets = b.Bucket(frame[:size/2])
+	buckets = b.Bucket(frame)
 	t.Log(buckets, len(buckets))
 
 	// test and print LogScale
-	b = NewBucketer(LogScale2, 60, size, 32, 16000)
+	b = NewBucketer(LogScale, 18, size, 32, 16384)
 	t.Error(b.indices)
 	buckets = b.Bucket(frame)
 	t.Log(buckets, len(buckets))

@@ -9,8 +9,6 @@ import (
 	"math"
 	"time"
 
-	colorful "github.com/lucasb-eyer/go-colorful"
-	"github.com/nfnt/resize"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
 	"github.com/peragwin/vuzicgo/gfx/skgrid"
 )
@@ -103,6 +101,11 @@ func (r *renderer) render() {
 	for i := 0; i < hl; i++ {
 		col := r.renderColumn(i)
 		for j, c := range col {
+			v := float64(i) / float64(hl)
+			v = 1 - v*v
+			c.R = uint8(float64(c.R) * v)
+			c.G = uint8(float64(c.G) * v)
+			c.B = uint8(float64(c.B) * v)
 			if r.mirror {
 				r.display.SetRGBA(hl+i, r.rows+j, c)
 				r.display.SetRGBA(hl+i, r.rows-1-j, c)
@@ -144,12 +147,17 @@ func (r *renderer) render() {
 
 	r.bass = float32(r.src.Bass)
 
+	sc := len(r.src.Amplitude) / r.columns
 	for i := 0; i < r.columns; i++ {
 		var s float64
-		for _, v := range r.src.Amplitude[i] {
-			// todo: sum with linear scaling to target bass?
-			s += v
+		for j := 0; j < sc; j++ {
+			for k, v := range r.src.Amplitude[sc*i+j] {
+				// todo: sum with linear scaling to target bass?
+				s += r.src.Scales[k] * (v - 1)
+			}
 		}
+		s /= float64(sc)
+		s /= float64(len(r.src.Amplitude[sc*i]))
 		r.scale[i] = float32(s)
 	}
 }
@@ -160,6 +168,7 @@ func (r *renderer) renderColumn(col int) []color.RGBA {
 	if r.params.Mode == fs.AnimateMode {
 		amp = r.src.Amplitude[col]
 	}
+
 	phase := r.src.Energy
 	ws := 2.0 * math.Pi / float64(r.params.Period)
 	phi := ws * float64(col)
@@ -167,8 +176,9 @@ func (r *renderer) renderColumn(col int) []color.RGBA {
 	colors := make([]color.RGBA, r.rows)
 
 	for i, ph := range phase {
+		val := r.src.Scales[i] * (amp[i] - 1)
 		//colors[i] = getRGB(d.params, amp[i], ph, phi)
-		colors[i] = getHSV(r.params, amp[i], ph, phi)
+		colors[i] = getHSV(r.params, val, ph, phi)
 	}
 
 	return colors
@@ -191,7 +201,10 @@ func getHSV(params *fs.Parameters, amp, ph, phi float64) color.RGBA {
 	val := fs.Sigmoid(gbr/255*(vo1+amp) + vo2)
 	al := fs.Sigmoid(alpha*amp + ao)
 
-	r, g, b := colorful.Hsv(hue, sat, val).RGB255()
+	// r, g, b := colorful.Hsv(hue, sat, val).RGB255()
+	rf, gf, bf := hsluv.HsluvToRGB(hue, sat*100, val*60)
+	r, g, b := uint8(255*rf), uint8(255*gf), uint8(255*bf)
+	// fmt.Println(rf, gf, bf)
 	return color.RGBA{r, g, b, uint8(255 * al)}
 }
 
@@ -221,112 +234,27 @@ func getRGB(params *fs.Parameters, amp, ph, phi float64) color.RGBA {
 	return color.RGBA{uint8(r), uint8(g), uint8(b), 255}
 }
 
-func (r *renderer) gridRender(g skgrid.Grid, frameRate int, done chan struct{}) {
-	defer g.Close()
-	defer close(done)
+var minWarp, maxWarp float64
 
-	rect := g.Rect()
-	width := rect.Dx()
-	height := rect.Dy()
-
-	render := make(chan struct{})
-	frames := r.Render(done, render)
-
-	mod := width % 2
-	xinput := make([]float64, width/2+mod)
-	for i := range xinput {
-		xinput[i] = 1 - 2*float64(i)/float64(width)
-	}
-	warpIndices := func(warp float64) []int {
-		ws := fs.DefaultParameters.WarpScale
-		wo := fs.DefaultParameters.WarpOffset
-		warp = wo + ws*math.Abs(warp)
-		wv := make([]int, width)
-		b := width / 2
-		for i := 0; i < width/2+mod; i++ {
-			scaled := 1 - math.Pow(xinput[i], warp)
-			xp := scaled * float64(width) / 2
-			wv[b-i] = b - int(xp+0.5)
-			wv[b+i] = b + int(xp+0.5)
-		}
-		if r.mirror {
-			wv2 := make([]int, width)
-			for i, v := range wv {
-				wv2[width-1-i] = v
-			}
-			wv = append(wv, wv2...)
-		}
-		return wv
-	}
-	scaleIndex := func(y int, scale float64) int {
-		yi := 1 - float64(y)/float64(height) // was 1 - float64(y) / ..
-		warp := 1 + fs.DefaultParameters.Scale*scale
-		offset := fs.DefaultParameters.ScaleOffset
-		scaled := 1 - math.Pow(yi, warp)
-		return int((float64(height) * scaled) + offset)
-	}
-
-	delay := time.Second / time.Duration(frameRate)
-	ticker := time.NewTicker(delay)
-
-	for {
-		<-ticker.C
-		//fmt.Println("render sk frame")
-		render <- struct{}{}
-		frame := <-frames
-		if frame == nil {
-			break
-		}
-		img := resize.Resize(uint(width), uint(height),
-			frame.img, resize.NearestNeighbor)
-
-		wvs := make([][]int, height)
-		yv := make([]int, height)
-		for i := range wvs {
-			wvs[i] = warpIndices(float64(frame.warp[i]))
-			yv[i] = scaleIndex(i, float64(frame.bass))
-		}
-
-		for y := 0; y < height; y++ {
-			for x := 0; x < width; x++ {
-				px := img.At(x, height-1-y).(color.RGBA)
-
-				xstart := 0
-				if x != 0 {
-					xstart = wvs[y][x]
-				}
-				xend := width
-				if x != width-1 {
-					// log.Println(y, x, wvs[y])
-					xend = wvs[y][x+1]
-				}
-
-				ystart := yv[y]
-				yend := height
-				if y != height-1 {
-					yend = yv[y+1]
-				}
-
-				if xend > xstart && yend > ystart {
-					// fmt.Println(xstart, xend, ystart, yend)
-					for j := ystart; j < yend; j++ {
-						for k := xstart; k < xend; k++ {
-							g.Pixel(k, j, px)
-						}
-					}
-				}
-			}
-		}
-
-		if err := g.Show(); err != nil {
-			log.Println("grid error!", err)
-			break
-		}
-	}
-}
+var warpCache = make(map[int]map[float64][]int)
 
 func calculateWarpIndices(input []float64, scale, offset, intensity float64) []int {
 	warp := offset + scale*math.Abs(intensity)
+
+	w := math.Trunc(100 * warp)
+	l := len(input)
+	if out, ok := warpCache[l][w]; ok {
+		return out
+	}
+
+	// if warp > maxWarp {
+	// 	maxWarp = warp
+	// }
+	// if warp < minWarp {
+	// 	minWarp = warp
+	// }
+
+	// log.Println("[Info] cache miss", minWarp, maxWarp, warp)
 
 	mod := len(input) % 2
 	b := len(input) / 2
@@ -341,6 +269,8 @@ func calculateWarpIndices(input []float64, scale, offset, intensity float64) []i
 		out[b-i] = b - int(p+0.5)
 		out[b+i] = b + int(p+0.5)
 	}
+
+	warpCache[l][w] = out
 
 	return out
 }
@@ -368,10 +298,30 @@ func (r *renderer) gridRender2(g skgrid.Grid, frameRate int, done chan struct{})
 		yinput[i] = 1 - 2*float64(i)/float64(height)
 	}
 
+	log.Println("[INFO] initing warp cache...")
+	warpCache[len(xinput)] = make(map[float64][]int)
+	warpCache[len(yinput)] = make(map[float64][]int)
+	for w := 0.0; w < 20.0; w += 0.01 {
+		calculateWarpIndices(xinput, w, 0, 1)
+		calculateWarpIndices(yinput, w, 0, 1)
+	}
+
 	delay := time.Second / time.Duration(frameRate)
 	ticker := time.NewTicker(delay)
 
+	frameCount := 0
+	if r.params.Debug {
+		go func() {
+			t := time.NewTicker(time.Second)
+			for _ = range t.C {
+				log.Println("[Info] FPS:", frameCount)
+				frameCount = 0
+			}
+		}()
+	}
+
 	for {
+		frameCount++
 		<-ticker.C
 		render <- struct{}{}
 		frame := <-frames
@@ -423,12 +373,31 @@ func (r *renderer) gridRender2(g skgrid.Grid, frameRate int, done chan struct{})
 			yvs[h-i-1] = wix
 		}
 
-		img := resize.Resize(uint(width), uint(height),
-			frame.img, resize.NearestNeighbor)
+		// img := resize.Resize(uint(width), uint(height),
+		// 	frame.img, resize.NearestNeighbor)
+		// img := frame.img
+		sx := frame.img.Rect.Dx() / width
+		sy := frame.img.Rect.Dy() / height
+		//log.Println("sx sy", sx, sy, frame.img.Rect)
 
-		for y := 0; y < height; y++ {
-			for x := 0; x < width; x++ {
-				px := img.At(x, y).(color.RGBA)
+		// the divide by two is a hack because we are mirrored in both directions
+		for y := 0; y < height/2; y++ {
+			for x := 0; x < width/2; x++ {
+
+				var px color.RGBA
+				for i := 0; i < sx; i++ {
+					for j := 0; j < sy; j++ {
+						p := frame.img.At(x*sx+i, y*sy+j).(color.RGBA)
+						px.A += p.A
+						px.R += p.R
+						px.G += p.G
+						px.B += p.B
+					}
+				}
+				px.A /= uint8(sx * sy)
+				px.R /= uint8(sx * sy)
+				px.G /= uint8(sx * sy)
+				px.B /= uint8(sx * sy)
 
 				xstart := 0
 				if x != 0 {
@@ -453,6 +422,9 @@ func (r *renderer) gridRender2(g skgrid.Grid, frameRate int, done chan struct{})
 					for j := ystart; j < yend; j++ {
 						for k := xstart; k < xend; k++ {
 							g.Pixel(k, j, px)
+							g.Pixel(k, height-1-j, px)
+							g.Pixel(width-1-k, j, px)
+							g.Pixel(width-1-k, height-1-j, px)
 						}
 					}
 				}

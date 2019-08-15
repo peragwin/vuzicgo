@@ -4,16 +4,19 @@ import (
 	"errors"
 	"image"
 	"image/color"
+	"log"
+	"sync"
 
 	"github.com/peragwin/vuzicgo/gfx/flaschen-taschen/api/go"
 )
 
 type skGrid struct {
-	Width     int
-	Height    int
-	buffer    []byte
-	driver    Driver
-	transpose bool
+	Width      int
+	Height     int
+	buffer     []byte
+	driver     Driver
+	transpose  bool
+	renderLock sync.Mutex
 }
 
 type Driver interface {
@@ -76,6 +79,9 @@ func newSkGrid(width, height int, opts map[string]interface{}) (Grid, error) {
 }
 
 func (s *skGrid) Rect() image.Rectangle {
+	if s.transpose {
+		return image.Rect(0, 0, s.Height, s.Width)
+	}
 	return image.Rect(0, 0, s.Width, s.Height)
 }
 
@@ -101,20 +107,33 @@ func (s *skGrid) Pixel(x, y int, col color.RGBA) {
 	col.A = uint8(float64(col.A)/8 + 0.5)
 
 	// skgrid is wired like a snake so we have to flip every other column
+	//if s.transpose {
 	if x%2 == 1 {
 		y = s.Height - 1 - y
 	}
+	//} else {
+	//	if y%2 == 1 {
+	//		x = s.Height - 1 - x
+	//	}
+	//}
 	var idx int
 	if s.transpose {
 		idx = s.Height*x + y
 	} else {
-		idx = s.Width*y + x
+		idx = s.Width*y + x // <- glitch. correct is s.Height*y + x
 	}
 	s.SetBuffer(idx, col)
 }
 
 func (s *skGrid) Show() error {
-	return s.driver.Send(s.buffer) //[4:4+4*(s.Width*s.Height)])
+	s.renderLock.Lock()
+	go func() {
+		defer s.renderLock.Unlock()
+		if err := s.driver.Send(s.buffer); err != nil {
+			log.Println("[SkGrid] [Error]", err)
+		}
+	}()
+	return nil
 }
 
 func (s *skGrid) Close() error {

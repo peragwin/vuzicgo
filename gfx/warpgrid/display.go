@@ -20,7 +20,7 @@ const (
 	in vec2 texPos;
 	out vec2 fragTexPos;
 	
-	float x, y;
+	float x, y, s;
 	void main() {
 		x = vertPos.x;
 		if (x <= 0) {
@@ -31,9 +31,11 @@ const (
 
 		y = vertPos.y;
 		if (y <= 0) {
-			y = pow(y + 1, scale) - 1;
+			s = (1 + y/2)*scale;
+			y = pow(y + 1, s) - 1;
 		} else {
-			y = 1 - pow(abs(y - 1), scale);
+			s = (1 - y / 2)*scale;
+			y = 1 - pow(abs(y - 1), s);
 		}
 
 		fragTexPos = texPos;
@@ -93,15 +95,17 @@ const (
 	}`
 )
 
+var aspect float32 = 13.0 / 7.0
+
 var (
 	square = [6]ml.Vec2{
-		{-1, 1},
-		{-1, -1},
-		{1, -1},
+		{-1 / aspect, 1},
+		{-1 / aspect, -1},
+		{1 / aspect, -1},
 
-		{-1, 1},
-		{1, 1},
-		{1, -1},
+		{-1 / aspect, 1},
+		{1 / aspect, 1},
+		{1 / aspect, -1},
 	}
 	uvCord = [6]ml.Vec2{
 		{0, 0},
@@ -266,9 +270,11 @@ func (g *Grid) createCells(columns, rows int, ctx *gfx.Context) error {
 	wuloc := ctx.GetUniformLocation("warp")
 	suloc := ctx.GetUniformLocation("scale")
 
-	sx, sy := 1.0/float32(columns), 1.0/float32(rows)
+	texsx, texsy := 1.0/float32(columns), 1.0/float32(rows)
+	sx, sy := 1.0/float32(columns), 1.0/float32(rows)/aspect
+
 	vscale := ml.Scale3D(sx, sy, 1)
-	uscale := ml.Scale2D(sx, sy)
+	uscale := ml.Scale2D(texsx, texsy)
 
 	var x, y float32
 	for y = 0.0; y < float32(rows); y++ {
@@ -279,7 +285,7 @@ func (g *Grid) createCells(columns, rows int, ctx *gfx.Context) error {
 
 			vtrans := ml.Translate3D(tx, ty, 0)
 
-			tx, ty = sx*x, sy*y
+			tx, ty = texsx*x, texsy*y
 
 			utrans := ml.Translate2D(tx, ty)
 
