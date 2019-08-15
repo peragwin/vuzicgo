@@ -20,12 +20,15 @@ const Menu = props =>
     targetOrigin={{horizontal: 'left', vertical: 'top'}}
     anchorOrigin={{horizontal: 'left', vertical: 'top'}}
   >
-    <MenuItem primaryText="Save Profile"
-      leftIcon={<CreateIcon />}
-      onClick={props.saveProfile} />
-    <MenuItem primaryText="Load Profile"
-      leftIcon={<FolderOpenIcon />}
-      onClick={props.loadProfile} />
+    {["Default", "Bright", "Dim", "Sensitive", "Other"].map(name =>
+      <div>
+        <MenuItem key={"save"+name} primaryText={`Save Profile: ${name}`}
+          leftIcon={<CreateIcon />}
+          onClick={() => props.saveProfile(name)} />
+        <MenuItem key={"load"+name} primaryText={`Load Profile: ${name}`}
+          leftIcon={<FolderOpenIcon />}
+          onClick={() => props.loadProfile(name)} />
+      </div>)}
   </IconMenu>
 Menu.muiName = 'IconMenu'
 
@@ -34,7 +37,7 @@ class appBar extends React.PureComponent {
     error: '',
   }
 
-  saveProfile = () => {
+  saveProfile = name => {
     const { client } = this.props
     const { params } = client.readQuery({ query: paramQuery })
     const { filter } = client.readQuery({ query: filterQuery })
@@ -42,13 +45,13 @@ class appBar extends React.PureComponent {
     delete params.__typename
     delete filter.__typename
 
-    window.localStorage.setItem("profile", JSON.stringify({params, filter}))
+    window.localStorage.setItem(`profile.${name}`, JSON.stringify({params, filter}))
   }
 
-  loadProfile = () => {
+  loadProfile = name => {
     let data = {}
     try {
-      data = JSON.parse(window.localStorage.getItem("profile"))
+      data = JSON.parse(window.localStorage.getItem(`profile.${name}`))
     } catch(e) {
       this.setState({error: JSON.stringify(e)})
       return
