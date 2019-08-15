@@ -9,7 +9,8 @@ import (
 	"math"
 	"time"
 
-	colorful "github.com/lucasb-eyer/go-colorful"
+	"github.com/hsluv/hsluv-go"
+
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
 	"github.com/peragwin/vuzicgo/gfx/skgrid"
 )
@@ -202,8 +203,11 @@ func getHSV(params *fs.Parameters, amp, ph, phi float64) color.RGBA {
 	val := fs.Sigmoid(gbr/255*(vo1+amp) + vo2)
 	al := fs.Sigmoid(alpha*amp + ao)
 
-	r, g, b := colorful.Hsv(hue, sat, val).RGB255()
-	return color.RGBA{r, g, b, uint8(256 * al)}
+	// r, g, b := colorful.Hsv(hue, sat, val).RGB255()
+	rf, gf, bf := hsluv.HsluvToRGB(hue, sat*100, val*60)
+	r, g, b := uint8(255*rf), uint8(255*gf), uint8(255*bf)
+	// fmt.Println(rf, gf, bf)
+	return color.RGBA{r, g, b, uint8(255 * al)}
 }
 
 func getRGB(params *fs.Parameters, amp, ph, phi float64) color.RGBA {

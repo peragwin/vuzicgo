@@ -262,21 +262,21 @@ func (d *FrequencySensor) adjustVariableGain(frame []float64) {
 func (d *FrequencySensor) adjustValueRanges(frame []float64) {
 	for i := range frame {
 		vh := d.valueHistory[i]
-		vo := d.valueOffsets[i]
+		// vo := d.valueOffsets[i]
 		vs := d.Drivers.Scales[i]
 		vmh := d.valueMaxHistory[i]
 
 		// vo is clamped to -1 instead
-		vh = 0.005*frame[i] + 0.995*vh
+		// vh = 0.005*frame[i] + 0.995*vh
 		// e := logCurve(0.000001 - (vh + vo))
 		// vo += .001 * e
 
-		sval := vs * (frame[i] + vo)
+		sval := vs * (frame[i] - 1)
 		if sval < 0 {
 			sval = -sval
 		}
 		if sval < vmh {
-			vmh = 0.05*sval + .95*vmh
+			vmh = 0.01*sval + .99*vmh
 		} else {
 			vmh = .001*sval + .999*vmh
 		}
@@ -286,7 +286,7 @@ func (d *FrequencySensor) adjustValueRanges(frame []float64) {
 		vs = 1 / vmh
 
 		d.valueHistory[i] = vh
-		d.valueOffsets[i] = vo
+		// d.valueOffsets[i] = vo
 		d.valueMaxHistory[i] = vmh
 		d.Drivers.Scales[i] = vs
 	}
