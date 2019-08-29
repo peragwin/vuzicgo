@@ -6,25 +6,22 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
-	"math"
 	"net/http"
-	"runtime"
 	"time"
 
-	"github.com/go-gl/gl/v4.1-core/gl"
+	// "github.com/go-gl/gl/v4.1-core/gl"
 
 	"github.com/peragwin/vuzicgo/audio"
 	"github.com/peragwin/vuzicgo/audio/fft"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
 	"github.com/peragwin/vuzicgo/gfx/skgrid"
-	"github.com/peragwin/vuzicgo/gfx/warpgrid"
 )
 
 const (
 	sampleFrame = 256
 	sampleRate  = 44100
 
-	textureMode = gl.LINEAR
+	// textureMode = gl.LINEAR
 )
 
 var (
@@ -40,6 +37,7 @@ var (
 	remote    = flag.String("remote", "", "ip:port of remote grid")
 	flRemote  = flag.String("fl-remote", "", "ip:port of flaschen grid")
 	pilocal   = flag.Bool("pilocal", false, "use raspberry pi's SPI output")
+	pipanel   = flag.Bool("pipanel", false, "use matrix panel driver on rpi")
 	frameRate = flag.Int("frame-rate", 30,
 		"frame rate to target when rendering to something other than opengl")
 	lowLatency  = flag.Bool("low-latency", false, "use lower audio latency")
@@ -54,24 +52,24 @@ var (
 	debug = flag.Bool("debug", false, "enabled debug output")
 )
 
-func initGfx(done chan struct{}) *warpgrid.Grid {
-	runtime.LockOSThread()
+// func initGfx(done chan struct{}) *warpgrid.Grid {
+// 	runtime.LockOSThread()
 
-	rows := *buckets
-	if *mirror {
-		rows *= 2
-	}
-	g, err := warpgrid.NewGrid(done, &warpgrid.Config{
-		Rows: rows, Columns: *columns,
-		Width: *width, Height: *height,
-		Title:       "Sim LED Display",
-		TextureMode: textureMode,
-	})
-	if err != nil {
-		log.Fatal("error creating display:", err)
-	}
-	return g
-}
+// 	rows := *buckets
+// 	if *mirror {
+// 		rows *= 2
+// 	}
+// 	g, err := warpgrid.NewGrid(done, &warpgrid.Config{
+// 		Rows: rows, Columns: *columns,
+// 		Width: *width, Height: *height,
+// 		Title:       "Sim LED Display",
+// 		TextureMode: textureMode,
+// 	})
+// 	if err != nil {
+// 		log.Fatal("error creating display:", err)
+// 	}
+// 	return g
+// }
 
 func main() {
 	flag.Parse()
@@ -86,12 +84,12 @@ func main() {
 	done := make(chan struct{})
 	defer close(done)
 
-	var g *warpgrid.Grid
-	if !*headless {
-		// The graphics have to be the first thing we initialize on macOS; I'm guessing it's
-		// because of the syscall that binds it to the main thread.
-		g = initGfx(done)
-	}
+	// var g *warpgrid.Grid
+	// if !*headless {
+	// The graphics have to be the first thing we initialize on macOS; I'm guessing it's
+	// because of the syscall that binds it to the main thread.
+	// g = initGfx(done)
+	// }
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -140,38 +138,38 @@ func main() {
 	// XXX added fsOut arg
 	rndr := newRenderer(*columns, *mirror, fs.DefaultParameters, f)
 
-	if !*headless {
-		frames := rndr.Render(done, render)
-		g.SetRenderFunc(func(g *warpgrid.Grid) {
-			render <- struct{}{}
-			rv := <-frames
-			g.SetImage(rv.img)
+	// if !*headless {
+	// 	frames := rndr.Render(done, render)
+	// 	g.SetRenderFunc(func(g *warpgrid.Grid) {
+	// 		render <- struct{}{}
+	// 		rv := <-frames
+	// 		g.SetImage(rv.img)
 
-			sos := float32(fs.DefaultParameters.ScaleOffset)
-			ss := float32(fs.DefaultParameters.Scale)
-			h := len(rv.scale) / 2
-			// fmt.Println("")
-			for i := 0; i < h; i++ {
-				sss := 1 - math.Abs(float64(h)-float64(i)/2)/float64(h)
-				// fmt.Println(sss)
-				s := sos + ss*float32(sss)*rv.scale[i]
-				g.SetScale(h+i, s)
-				g.SetScale(h-i-1, s)
-			}
+	// 		sos := float32(fs.DefaultParameters.ScaleOffset)
+	// 		ss := float32(fs.DefaultParameters.Scale)
+	// 		h := len(rv.scale) / 2
+	// 		// fmt.Println("")
+	// 		for i := 0; i < h; i++ {
+	// 			sss := 1 - math.Abs(float64(h)-float64(i)/2)/float64(h)
+	// 			// fmt.Println(sss)
+	// 			s := sos + ss*float32(sss)*rv.scale[i]
+	// 			g.SetScale(h+i, s)
+	// 			g.SetScale(h-i-1, s)
+	// 		}
 
-			wos := float32(fs.DefaultParameters.WarpOffset)
-			ws := float32(fs.DefaultParameters.WarpScale)
-			h = len(rv.warp) / 2
-			for i, w := range rv.warp {
-				wss := 1 - math.Abs(float64(h)-float64(i)/2)/float64(h)
-				w = wos + float32(wss)*ws*w
-				g.SetWarp(i, w)
-				if *mirror {
-					g.SetWarp(2*len(rv.warp)-1-i, w)
-				}
-			}
-		})
-	}
+	// 		wos := float32(fs.DefaultParameters.WarpOffset)
+	// 		ws := float32(fs.DefaultParameters.WarpScale)
+	// 		h = len(rv.warp) / 2
+	// 		for i, w := range rv.warp {
+	// 			wss := 1 - math.Abs(float64(h)-float64(i)/2)/float64(h)
+	// 			w = wos + float32(wss)*ws*w
+	// 			g.SetWarp(i, w)
+	// 			if *mirror {
+	// 				g.SetWarp(2*len(rv.warp)-1-i, w)
+	// 			}
+	// 		}
+	// 	})
+	// }
 
 	// If a remote is passed try to stream to it. If we lose the connection, try again
 	// after 10 seconds to reestablish a connection.
@@ -214,22 +212,34 @@ func main() {
 		}()
 	}
 
-	if *pilocal {
+	// if *pilocal {
+	// 	go func() {
+	// 		if pi, err := skgrid.NewPiLocal(8e6); err != nil {
+	// 			log.Println("[ERROR] could not initialize raspberry pi:", err)
+	// 		} else {
+	// 			grid, err := skgrid.NewGrid(60, 16, "skgrid", map[string]interface{}{
+	// 				//"transpose": true,
+	// 				"driver": pi,
+	// 			})
+	// 			if err != nil {
+	// 				panic(err)
+	// 			}
+	// 			done := make(chan struct{})
+	// 			go rndr.gridRender2(grid, *frameRate, done)
+	// 			<-done
+	// 		}
+	// 	}()
+	// }
+
+	if *pipanel {
 		go func() {
-			if pi, err := skgrid.NewPiLocal(8e6); err != nil {
-				log.Println("[ERROR] could not initialize raspberry pi:", err)
-			} else {
-				grid, err := skgrid.NewGrid(60, 16, "skgrid", map[string]interface{}{
-					//"transpose": true,
-					"driver": pi,
-				})
-				if err != nil {
-					panic(err)
-				}
-				done := make(chan struct{})
-				go rndr.gridRender2(grid, *frameRate, done)
-				<-done
+			grid, err := skgrid.NewGrid(64, 32, "panel", nil)
+			if err != nil {
+				panic(err)
 			}
+			done := make(chan struct{})
+
+			<-done
 		}()
 	}
 
@@ -271,9 +281,9 @@ func main() {
 		http.ListenAndServe(":8080", nil)
 	}()
 
-	if !*headless {
-		g.Start()
-	} else {
-		<-done
-	}
+	// if !*headless {
+	// 	g.Start()
+	// } else {
+	<-done
+	// }
 }
