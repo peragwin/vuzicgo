@@ -9,6 +9,7 @@ import (
 	"math"
 	"time"
 
+	hsluv "github.com/hsluv/hsluv-go"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
 	"github.com/peragwin/vuzicgo/gfx/skgrid"
 )
@@ -204,7 +205,7 @@ func getHSV(params *fs.Parameters, amp, ph, phi float64) color.RGBA {
 	// r, g, b := colorful.Hsv(hue, sat, val).RGB255()
 	rf, gf, bf := hsluv.HsluvToRGB(hue, sat*100, val*60)
 	r, g, b := uint8(255*rf), uint8(255*gf), uint8(255*bf)
-	// fmt.Println(rf, gf, bf)
+	// fmt.Println(r, g, b)
 	return color.RGBA{r, g, b, uint8(255 * al)}
 }
 
@@ -295,7 +296,7 @@ func (r *renderer) gridRender2(g skgrid.Grid, frameRate int, done chan struct{})
 	// mod = height % 2
 	yinput := make([]float64, height) ///2+mod)
 	for i := range yinput {
-		yinput[i] = 1 - 2*float64(i)/float64(height)
+		yinput[i] = (1 - 2*float64(i)/float64(height)) * 25.0 / 35.0
 	}
 
 	log.Println("[INFO] initing warp cache...")
@@ -373,6 +374,10 @@ func (r *renderer) gridRender2(g skgrid.Grid, frameRate int, done chan struct{})
 			yvs[h-i-1] = wix
 		}
 
+		// fmt.Println(yvs[4])
+
+		g.Fill(color.RGBA{0, 0, 0, 0})
+
 		// img := resize.Resize(uint(width), uint(height),
 		// 	frame.img, resize.NearestNeighbor)
 		// img := frame.img
@@ -382,22 +387,33 @@ func (r *renderer) gridRender2(g skgrid.Grid, frameRate int, done chan struct{})
 
 		// the divide by two is a hack because we are mirrored in both directions
 		for y := 0; y < height/2; y++ {
+			y := y
 			for x := 0; x < width/2; x++ {
 
-				var px color.RGBA
+				// fmt.Println("y1", y)
+				// y = int(9.0 * float32(y) / 13.0)
+				// fmt.Println("y2", y)
+
+				var pa, pr, pg, pb int
 				for i := 0; i < sx; i++ {
 					for j := 0; j < sy; j++ {
 						p := frame.img.At(x*sx+i, y*sy+j).(color.RGBA)
-						px.A += p.A
-						px.R += p.R
-						px.G += p.G
-						px.B += p.B
+						pa += int(p.A)
+						pr += int(p.R)
+						pg += int(p.G)
+						pb += int(p.B)
 					}
 				}
-				px.A /= uint8(sx * sy)
-				px.R /= uint8(sx * sy)
-				px.G /= uint8(sx * sy)
-				px.B /= uint8(sx * sy)
+				pa /= (sx * sy)
+				pr /= (sx * sy)
+				pg /= (sx * sy)
+				pb /= (sx * sy)
+				px := color.RGBA{
+					A: uint8(pa),
+					R: uint8(pr),
+					G: uint8(pg),
+					B: uint8(pb),
+				}
 
 				xstart := 0
 				if x != 0 {
@@ -428,6 +444,207 @@ func (r *renderer) gridRender2(g skgrid.Grid, frameRate int, done chan struct{})
 						}
 					}
 				}
+			}
+		}
+
+		if err := g.Show(); err != nil {
+			log.Println("grid error!", err)
+			break
+		}
+	}
+}
+
+type gridPoint struct {
+	x    float32
+	y    float32
+	srcX int
+	srcY int
+}
+
+func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{}) {
+	defer g.Close()
+	defer close(done)
+
+	rect := g.Rect()
+	displayWidth := rect.Dx()
+	displayHeight := rect.Dy()
+
+	render := make(chan struct{})
+	frames := r.Render(done, render)
+
+	columns := r.src.Frames / 2
+	rows := r.src.Buckets
+	aspect := float32(9.0 / 13.0)
+
+	// initialize points in the top right quadrant due to symmetry
+	points := make([]gridPoint, columns*rows)
+	for x := 0; x < columns; x++ {
+		for y := 0; y < rows; y++ {
+			xf := float32(x) / float32(columns)
+			yf := float32(y) / float32(rows) * aspect
+			points[x+y*columns] = gridPoint{
+				x:    xf,
+				y:    yf,
+				srcX: columns - 1 - x,
+				srcY: rows - 1 - y,
+			}
+		}
+	}
+
+	// 0,0 -> dw/2,dh/2
+	// 1,1 -> dw,0
+	// -1,-1 -> 0,dh
+	// 1,-1 -> dw,dh
+	// -1,1 -> 0,0
+
+	getDisplayXY := func(g gridPoint) (int, int) {
+		x := int(g.x*float32(displayWidth)/2 + 0.5)
+		if x < 0 {
+			x = 0
+		}
+		if x >= displayWidth/2 {
+			x = displayWidth/2 - 1
+		}
+		y := int(g.y*float32(displayHeight)/2 + 0.5)
+		if y < 0 {
+			y = 0
+		}
+		if y >= displayHeight/2 {
+			y = displayHeight/2 - 1
+		}
+		return x, y
+	}
+
+	applyWarp := func(g gridPoint, w, s float32) gridPoint {
+		if g.x <= 0 {
+			g.x = float32(math.Pow(float64(g.x+1), float64(w)) - 1)
+		} else {
+			g.x = float32(1 - math.Pow(float64(1-g.x), float64(w)))
+		}
+		if g.y <= 0 {
+			s = (1 + g.y/2) * s
+			g.y = float32(math.Pow(float64(1+g.y), float64(s)) - 1)
+		} else {
+			// ss := s
+			s = (1 - g.y/2) * s
+			// yy := g.y
+			g.y = float32(1 - math.Pow(float64(1-g.y), float64(s)))
+			// if g.y < 0 {
+			// 	fmt.Println("wtf", yy, g.y, s, ss)
+			// }
+		}
+		return g
+	}
+
+	delay := time.Second / time.Duration(frameRate)
+	ticker := time.NewTicker(delay)
+
+	frameCount := 0
+	if r.params.Debug {
+		go func() {
+			t := time.NewTicker(time.Second)
+			for _ = range t.C {
+				log.Println("[Info] FPS:", frameCount)
+				frameCount = 0
+			}
+		}()
+	}
+
+	// bufferAt := func(b []int, x, y int) (int, int, int, int) {
+	// 	idx := x + displayWidth/2*y
+	// 	idx *= 4
+	// 	return b[idx], b[idx+1], b[idx+2], b[idx+3]
+	// }
+	// bufferSet := func(buf []int, x, y, a, r, g, b int) {
+	// 	idx := x + displayWidth/2*y
+	// 	idx *= 4
+	// 	buf[idx] = a
+	// 	buf[idx+1] = r
+	// 	buf[idx+2] = g
+	// 	buf[idx+3] = b
+	// }
+
+	for {
+		frameCount++
+		<-ticker.C
+		render <- struct{}{}
+		frame := <-frames
+		if frame == nil {
+			break
+		}
+
+		g.Fill(color.RGBA{0, 0, 0, 0})
+
+		// buffer := make([]int, displayWidth*displayHeight/4*4)
+		buffer := image.NewRGBA(image.Rect(0, 0, displayWidth/2, displayHeight/2))
+
+		// points := make([]gridPoint, len(pointSrc))
+		for _, g := range points {
+			// fmt.Println("g warp scale", g, len(frame.warp), len(frame.scale))
+			warp := fs.DefaultParameters.WarpScale * float64(frame.warp[rows-1-g.srcY])
+			warp += fs.DefaultParameters.WarpOffset
+			scale := fs.DefaultParameters.Scale * float64(frame.scale[columns-1-g.srcX])
+			scale += fs.DefaultParameters.ScaleOffset
+			p := applyWarp(g, float32(warp), float32(scale))
+			x, y := getDisplayXY(p)
+			// fmt.Println("g, p, x, y", g, p, x, y)
+
+			c1 := frame.img.At(g.srcX, g.srcY).(color.RGBA)
+			c2 := buffer.At(x, y).(color.RGBA)
+
+			wc1 := float32(int(c1.A)+int(c1.B)+int(c1.G)+int(c1.R)) / 4
+			wc2 := float32(int(c2.A)+int(c2.B)+int(c2.G)+int(c2.R)) / 4
+			sw := (wc1 + wc2)
+			sc1 := wc1 / sw
+			sc2 := wc2 / sw
+
+			a := int(float32(c1.A)*sc1 + float32(c2.A)*sc2)
+			if a > 255 {
+				a = 255
+			}
+			r := int(float32(c1.R)*sc1 + float32(c2.R)*sc2)
+			if r > 255 {
+				r = 255
+			}
+			g := int(float32(c1.G)*sc1 + float32(c2.G)*sc2)
+			if g > 255 {
+				g = 255
+			}
+			b := int(float32(c1.B)*sc1 + float32(c2.B)*sc2)
+			if b > 255 {
+				b = 255
+			}
+
+			// buffer.SetRGBA(x, y, c1)
+
+			buffer.SetRGBA(x, y, color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)})
+			// bufferSet(buffer, x, y, a, r, g, b)
+		}
+
+		// max := 255
+		// for _, v := range buffer {
+		// 	if v > max {
+		// 		max = v
+		// 	}
+		// }
+		// sc := 255.0 / float32(max)
+		// for i, v := range buffer {
+		// 	buffer[i] = int(float32(v) * sc)
+		// }
+
+		for x := 0; x < displayWidth/2; x++ {
+			for y := 0; y < displayHeight/2; y++ {
+				c := buffer.At(x, y).(color.RGBA)
+				xt := x //displayWidth/2 - 1 - x
+				yt := y // displayHeight/2 - 1 - y
+				// a, r, gr, b := bufferAt(buffer, x, y)
+				// c := color.RGBA{uint8(a), uint8(r), uint8(gr), uint8(b)}
+				xo := displayWidth / 2
+				yo := displayHeight / 2
+				g.Pixel(xo+xt, yo+yt, c)
+				g.Pixel(xo-xt-1, yo+yt, c)
+				g.Pixel(xo+xt, yo-yt-1, c)
+				g.Pixel(xo-xt-1, yo-yt-1, c)
 			}
 		}
 

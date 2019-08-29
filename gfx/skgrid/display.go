@@ -29,6 +29,7 @@ type Grid interface {
 	Pixel(x, y int, col color.RGBA)
 	Show() error
 	Close() error
+	Fill(c color.RGBA)
 }
 
 type initFunc func(int, int, map[string]interface{}) (Grid, error)

@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	sampleFrame = 64
+	sampleFrame = 256
 	sampleRate  = 44100
 
 	textureMode = gl.LINEAR
@@ -50,6 +50,8 @@ var (
 		"size of process frames. must be multiple of 256")
 
 	httpDir = flag.String("http-dir", "./client/build", "where to host static client gui files")
+
+	debug = flag.Bool("debug", false, "enabled debug output")
 )
 
 func initGfx(done chan struct{}) *warpgrid.Grid {
@@ -120,6 +122,7 @@ func main() {
 
 	fs.DefaultParameters.Mode = *mode
 	fs.DefaultParameters.Period = 3 * *columns / 2
+	fs.DefaultParameters.Debug = *debug
 	f := fs.NewFrequencySensor(&fs.Config{
 		Columns:    *columns,
 		Buckets:    *buckets,
@@ -198,15 +201,15 @@ func main() {
 
 	if *flRemote != "" {
 		go func() {
-			grid, err := skgrid.NewGrid(60, 16, "flaschen", map[string]interface{}{
-				"layer":  0,
+			grid, err := skgrid.NewGrid(44, 34, "flaschen", map[string]interface{}{
+				"layer":  16,
 				"remote": *flRemote,
 			})
 			if err != nil {
 				panic(err)
 			}
 			done := make(chan struct{})
-			go rndr.gridRender2(grid, *frameRate, done)
+			go rndr.gridRender3(grid, *frameRate, done)
 			<-done
 		}()
 	}

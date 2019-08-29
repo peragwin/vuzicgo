@@ -28,24 +28,24 @@ func NewContext(done chan struct{},
 
 	var window *Window
 	var err error
-	if runtime.GOOS == "darwin" {
-		window, err = NewWindow(windowConfig)
-		if err != nil {
-			return nil, err
-		}
-		if err := gl.Init(); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := gl.Init(); err != nil {
-			return nil, err
-		}
-		window, err = NewWindow(windowConfig)
-		if err != nil {
-			return nil, err
-		}
-		gl.Flush()
+	// if runtime.GOOS == "darwin" {
+	// 	window, err = NewWindow(windowConfig)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	if err := gl.Init(); err != nil {
+	// 		return nil, err
+	// 	}
+	// } else {
+	if err := gl.Init(); err != nil {
+		return nil, err
 	}
+	window, err = NewWindow(windowConfig)
+	if err != nil {
+		return nil, err
+	}
+	gl.Flush()
+	// }
 
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	log.Println("OpenGL version", version)
