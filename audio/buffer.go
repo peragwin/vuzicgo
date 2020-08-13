@@ -1,9 +1,8 @@
 package audio
 
 import (
-	"log"
-
 	"github.com/peragwin/vuzicgo/audio/util"
+	"github.com/golang/glog"
 )
 
 // Buffer turns every incoming frame into overlapping outgoing frames of the given size.
@@ -12,7 +11,7 @@ import (
 // to work with down the line using go's math package.
 func Buffer(done chan struct{}, in <-chan []float32, size int) chan []float64 {
 
-	out := make(chan []float64, 16) // allocate a small buffer for
+	out := make(chan []float64, 1) // allocate a small buffer for
 
 	go func() {
 		defer close(out)
@@ -42,7 +41,7 @@ func Buffer(done chan struct{}, in <-chan []float32, size int) chan []float64 {
 				select {
 				case out <- buffer.Get(size):
 				default:
-					log.Println("[WARNING] Input buffer overrun! Frame was dropped.")
+					glog.V(3).Info("[WARNING] send buffer overrun! Frame was dropped.")
 				}
 			}
 		}

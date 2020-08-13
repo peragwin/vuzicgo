@@ -37,6 +37,7 @@ type initFunc func(int, int, map[string]interface{}) (Grid, error)
 var drivers = map[string]initFunc{
 	"skgrid":   newSkGrid,
 	"flaschen": newFlaschen,
+	"panel":    newPanel,
 }
 
 // NewGrid creates a new Grid display object using the given driver and options

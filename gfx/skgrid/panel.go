@@ -21,6 +21,11 @@ func newPanel(w, h int, opts map[string]interface{}) (Grid, error) {
 		w: w, h: h,
 		close: make(chan struct{}),
 	}
+	var panelType string
+	panelTypeI, ok := opts["paneltype"]
+	if ok {
+		panelType = panelTypeI.(string)
+	}
 
 	cfg := &rgbmatrix.HardwareConfig{
 		Rows:              h,
@@ -29,8 +34,10 @@ func newPanel(w, h int, opts map[string]interface{}) (Grid, error) {
 		Parallel:          1,
 		PWMBits:           11,
 		Brightness:        100,
-		PWMLSBNanoseconds: 130,
+		PWMLSBNanoseconds: 50,
 		ScanMode:          rgbmatrix.Progressive,
+		// ShowRefreshRate:   true,
+		PanelType:	   panelType,
 	}
 
 	m, err := rgbmatrix.NewRGBLedMatrix(cfg)
@@ -59,4 +66,12 @@ func (p *panel) Show() error {
 
 func (p *panel) Close() error {
 	return p.c.Close()
+}
+
+func (p *panel) Fill(col color.RGBA) {
+	for x := 0; x < p.w; x++ {
+		for y := 0; y < p.h; y++ {
+			p.c.Set(x, y, col)
+		}
+	}
 }

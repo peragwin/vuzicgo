@@ -23,6 +23,7 @@ type Parameters struct {
 	GlobalBrightness float64 `json:"gbr"`
 	Brightness       float64 `json:"br"`
 	SaturationOffset float64 `json:"satOffset"`
+	SaturationScale  float64 `json:"satScale"`
 	ValueOffset1     float64 `json:"valueOffset1"`
 	ValueOffset2     float64 `json:"valueOffset2"`
 	Alpha            float64 `json:"alpha"`
@@ -43,6 +44,8 @@ type Parameters struct {
 
 	Scale       float64 `json:"scale"`
 	ScaleOffset float64 `json:"scaleOffset"`
+
+	ColumnDivider int `json:"colDiv"`
 
 	Debug bool `json:"debug"`
 }

@@ -1,9 +1,8 @@
 package freqsensor
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
+	"log"
 	"math"
 
 	"github.com/graphql-go/graphql"
@@ -15,15 +14,15 @@ import (
 var (
 	defaultFilterParams = filterValues{
 		gain: mat.NewDense(2, 2, []float64{
-			0.80, +0.200,
-			-0.005, 0.995,
+			0.80, +0.20,
+			-0.0005, 0.9995,
 		}),
 		diff: mat.NewDense(2, 2, []float64{
 			0.263, .737,
 			-0.0028, 0.2272,
 		}),
 	}
-	defaultVGCParams = []float64{0.05, 0.95}
+	defaultVGCParams = []float64{0.005, 0.995}
 
 	// DefaultParameters is a set of default parameters that work okay
 	DefaultParameters = &Parameters{
@@ -31,20 +30,22 @@ var (
 		Brightness:       4,
 		Offset:           0,
 		Period:           24,
-		Gain:             2,
+		Gain:             4,
 		Preemphasis:      2,
-		DifferentialGain: 5e-3,
-		Sync:             5e-3,
+		DifferentialGain: 22e-4,
+		Sync:             36e-4,
 		Mode:             AnimateMode,
-		WarpOffset:       0.5,
-		WarpScale:        1.55,
-		Scale:            0.45,
-		SaturationOffset: -2.0,
-		ValueOffset1:     1.0,
-		ValueOffset2:     -4.0,
-		Alpha:            0.25,
-		AlphaOffset:      -4.0,
+		WarpOffset:       0.68,
+		WarpScale:        1.33,
+		Scale:            1.5,
+		SaturationOffset: 0.0,
+		SaturationScale:  0.7,
+		ValueOffset1:     2.0,
+		ValueOffset2:     0.0,
+		Alpha:            0.0,
+		AlphaOffset:      0.0,
 		ScaleOffset:      0.71,
+		ColumnDivider:    2,
 	}
 )
 
@@ -133,6 +134,21 @@ func (d *FrequencySensor) Process(done chan struct{}, in chan []float64) chan *D
 
 	out := make(chan *Drivers)
 
+	bucketSum := 0.0
+	isBadFrame := func(x []float64) bool {
+		sum := 0.0
+		for i := range x {
+			sum += x[i]
+		}
+		var bad bool
+		if sum > 32*bucketSum {
+			bad = true
+			log.Println("[Info] Bad frame!")
+		}
+		bucketSum = .01*sum + .99*bucketSum
+		return bad
+	}
+
 	// set up a goroutine to process the bucketed input
 	go func() {
 		defer close(out)
@@ -149,12 +165,16 @@ func (d *FrequencySensor) Process(done chan struct{}, in chan []float64) chan *D
 				return
 			}
 
+			if isBadFrame(x) {
+				continue
+			}
+
 			d.applyPreemphasis(x)
 
 			d.applyFilters(x)
-			d.adjustValueRanges(x)
 			d.applyChannelEffects()
 			d.applyChannelSync()
+			d.adjustValueRanges()
 			d.applyBase(d.Amplitude[0])
 
 			d.frameCount++
@@ -254,13 +274,14 @@ func (d *FrequencySensor) applyFilter(frame []float64, output, fp, di *mat.Dense
 // filter whose output will be the gain of the 1st level filter for the next incoming frame.
 func (d *FrequencySensor) adjustVariableGain(frame []float64) {
 	d.vgc.apply(frame)
-	if d.params.Debug && d.frameCount%200 == 0 {
-		bs, _ := json.Marshal(map[string]interface{}{"vgc.gain": d.vgc.gain})
-		fmt.Println(string(bs))
-	}
+	// if d.params.Debug && d.frameCount%200 == 0 {
+	// 	bs, _ := json.Marshal(map[string]interface{}{"vgc.gain": d.vgc.gain})
+	// 	fmt.Println(string(bs))
+	// }
 }
 
-func (d *FrequencySensor) adjustValueRanges(frame []float64) {
+func (d *FrequencySensor) adjustValueRanges() {
+	frame := d.Drivers.Amplitude[0]
 	for i := range frame {
 		vh := d.valueHistory[i]
 		// vo := d.valueOffsets[i]
@@ -273,11 +294,9 @@ func (d *FrequencySensor) adjustValueRanges(frame []float64) {
 		// vo += .001 * e
 
 		sval := vs * (frame[i] - 1)
-		if sval < 0 {
-			sval = -sval
-		}
+		sval *= sval
 		if sval < vmh {
-			vmh = 0.01*sval + .99*vmh
+			vmh = 0.001*sval + .999*vmh
 		} else {
 			vmh = .001*sval + .999*vmh
 		}
@@ -301,9 +320,9 @@ func (d *FrequencySensor) applyChannelEffects() {
 	gain := d.filterValues.gain.RawRowView(0)
 	diff := d.filterValues.diff.RawRowView(0)
 
-	if d.params.Mode == AnimateMode {
+	if d.params.Mode == AnimateMode && d.frameCount%d.params.ColumnDivider == 0 {
 		decay := 1 - (2.0 / float64(d.Frames))
-		for i := len(d.Amplitude) / 2; i >= 0; i-- { // -2
+		for i := len(d.Amplitude)-2; i >= 0; i-- { // -2
 			for j := range d.Amplitude[i] {
 				d.Amplitude[i+1][j] = decay * d.Amplitude[i][j]
 			}

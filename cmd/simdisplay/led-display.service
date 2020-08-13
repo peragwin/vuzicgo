@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=pi
-ExecStart=/usr/bin/led-display -mode=1 -buckets=60 -columns=180 -pilocal -headless -frame-rate=100 -http-dir=/var/www/led-display
+ExecStart=/usr/bin/led-display -mode=1 -buckets=16 -columns=64 -pipanel -frame-rate=200 -frame-size=512 -http-dir=/var/www/led-display
 Restart=always
 RestartSec=10
 

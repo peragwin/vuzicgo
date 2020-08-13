@@ -34,10 +34,10 @@ type Parameters struct {
 export const paramQuery = gql`
   query ParamQuery {
     params {
-      gbr
       period
-      br
+      colDiv
       satOffset
+      satScale
       valueOffset1
       valueOffset2
       alpha
@@ -58,11 +58,11 @@ export const paramQuery = gql`
 export const paramMut = gql`
   mutation ParamMut ($params: inputParamType!) {
     params(params: $params) {
-      gbr
       period
-      br
+      colDiv
       gain
       pre
+      satScale
       satOffset
       valueOffset1
       valueOffset2 
@@ -129,23 +129,24 @@ class ParamEditor extends React.PureComponent {
 
                         <Divider />
 
-                        <ParamSlider title="Global Brightness"
-                            min={0} max={255} step={1}
-                            value={params.gbr}
-                            onChange={this.setParam('gbr')}
-                        />
                         <ParamSlider title="Period"
                             min={1} max={256} step={1}
                             value={params.period}
                             onChange={this.setParam('period')}
                         />
 
+                        <ParamSlider title="Column Divider"
+                            min={1} max={8} step={1}
+                            value={params.colDiv}
+                            onChange={this.setParam('colDiv')}
+                        />
+
                         <Divider />
 
-                        <ParamSlider title="Saturation"
+                        <ParamSlider title="Saturation Scale"
                             min={0} max={8}
-                            value={params.br}
-                            onChange={this.setParam('br')}
+                            value={params.satScale}
+                            onChange={this.setParam('satScale')}
                         />
                         <ParamSlider title="Saturation Offset"
                             min={-4} max={4}
@@ -162,12 +163,12 @@ class ParamEditor extends React.PureComponent {
                             value={params.offset}
                             onChange={this.setParam('offset')}
                         />
-                        <ParamSlider title="Value Offset 1"
+                        <ParamSlider title="Value Scale"
                             min={-2} max={2}
                             value={params.valueOffset1}
                             onChange={this.setParam('valueOffset1')}
                         />
-                        <ParamSlider title="Value Offset 2"
+                        <ParamSlider title="Value Offset"
                             min={-6} max={6}
                             value={params.valueOffset2}
                             onChange={this.setParam('valueOffset2')}

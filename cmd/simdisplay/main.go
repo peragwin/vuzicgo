@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"runtime"
 	"time"
 
 	// "github.com/go-gl/gl/v4.1-core/gl"
@@ -74,6 +75,8 @@ var (
 func main() {
 	flag.Parse()
 
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	fsize := *frameSize
 	if fsize%sampleFrame != 0 {
 		log.Fatalf("frame size must be multiple of %d", sampleFrame)
@@ -119,7 +122,7 @@ func main() {
 	specOut := specProc.Process(done, fftOut)
 
 	fs.DefaultParameters.Mode = *mode
-	fs.DefaultParameters.Period = 3 * *columns / 2
+	fs.DefaultParameters.Period = 3 * *columns
 	fs.DefaultParameters.Debug = *debug
 	f := fs.NewFrequencySensor(&fs.Config{
 		Columns:    *columns,
@@ -190,7 +193,7 @@ func main() {
 						panic(err)
 					}
 					done := make(chan struct{})
-					go rndr.gridRender2(grid, *frameRate, done)
+					go rndr.gridRender3(grid, *frameRate, done)
 					<-done
 				}
 			}
@@ -233,12 +236,15 @@ func main() {
 
 	if *pipanel {
 		go func() {
-			grid, err := skgrid.NewGrid(64, 32, "panel", nil)
+			grid, err := skgrid.NewGrid(128, 64, "panel", map[string]interface{}{
+				"paneltype": "FM6126A",
+			})
 			if err != nil {
 				panic(err)
 			}
 			done := make(chan struct{})
-
+			go rndr.gridRender3(grid, *frameRate, done)
+			// go rndr.colorTest(grid, *frameRate, done)
 			<-done
 		}()
 	}

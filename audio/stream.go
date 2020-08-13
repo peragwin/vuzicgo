@@ -3,9 +3,9 @@ package audio
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/gordonklaus/portaudio"
+	"github.com/golang/glog"
 )
 
 // Config represents a config that is used to open a new Stream.
@@ -27,7 +27,7 @@ type Config struct {
 // NewSource initializes a new streaming source with portaudio and returns a channel on which
 // to receive frames.
 func NewSource(ctx context.Context, cfg *Config) (<-chan []float32, <-chan error) {
-	out := make(chan []float32, 16)
+	out := make(chan []float32, 1)
 	errc := make(chan error, 1)
 	done := ctx.Done()
 
@@ -90,7 +90,7 @@ func NewSource(ctx context.Context, cfg *Config) (<-chan []float32, <-chan error
 
 			err := stream.Read()
 			if err != nil {
-				log.Println("[INFO] [Audio]", err, len(out))
+				//log.Println("[INFO] [Audio]", err, len(out))
 				switch err {
 				case portaudio.InputOverflowed:
 				default:
@@ -99,7 +99,11 @@ func NewSource(ctx context.Context, cfg *Config) (<-chan []float32, <-chan error
 				}
 			}
 
-			out <- in
+			select {
+			case out <- in:
+			default:
+				glog.V(3).Info("[INFO] [Audio] send on stream channel blocked")
+			}
 		}
 	}()
 
