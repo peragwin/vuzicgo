@@ -7,7 +7,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/peragwin/vuzicgo/gfx/flaschen-taschen/api/go"
+	//"github.com/peragwin/vuzicgo/gfx/flaschen-taschen/api/go"
 )
 
 type skGrid struct {
@@ -36,7 +36,7 @@ type initFunc func(int, int, map[string]interface{}) (Grid, error)
 
 var drivers = map[string]initFunc{
 	"skgrid":   newSkGrid,
-	"flaschen": newFlaschen,
+	//"flaschen": newFlaschen,
 	"panel":    newPanel,
 }
 
@@ -141,7 +141,7 @@ func (s *skGrid) Show() error {
 func (s *skGrid) Close() error {
 	return s.driver.Close()
 }
-
+/*
 func newFlaschen(width, height int, opts map[string]interface{}) (Grid, error) {
 	lay, ok := opts["layer"]
 	if !ok {
@@ -161,3 +161,4 @@ func newFlaschen(width, height int, opts map[string]interface{}) (Grid, error) {
 	}
 	return flaschen.NewFlaschen(width, height, layer, remote)
 }
+*/

@@ -38,7 +38,15 @@ var (
 	remote    = flag.String("remote", "", "ip:port of remote grid")
 	flRemote  = flag.String("fl-remote", "", "ip:port of flaschen grid")
 	pilocal   = flag.Bool("pilocal", false, "use raspberry pi's SPI output")
+
 	pipanel   = flag.Bool("pipanel", false, "use matrix panel driver on rpi")
+	panelWidth = flag.Int("panel-width", 64, "single matrix panel width")
+	panelHeight = flag.Int("panel-height", 32, "single matrix panel height")
+	panelChain = flag.Int("panel-chain", 1, "number of chained matrix panels")
+	panelParallel = flag.Int("panel-parallel", 1, "number of parallel matrix panels")
+	panelHwMapping = flag.String("panel-hw-mapping", "regular", "panel hardware mapping")
+	panelPwmLSBNano = flag.Int("panel-pwm-lsb-nano", 130, "panel lsb pwm timing nanoseconds")
+
 	frameRate = flag.Int("frame-rate", 30,
 		"frame rate to target when rendering to something other than opengl")
 	lowLatency  = flag.Bool("low-latency", false, "use lower audio latency")
@@ -236,8 +244,13 @@ func main() {
 
 	if *pipanel {
 		go func() {
-			grid, err := skgrid.NewGrid(128, 64, "panel", map[string]interface{}{
+			grid, err := skgrid.NewGrid(*panelWidth, *panelHeight, "panel", map[string]interface{}{
 				"paneltype": "FM6126A",
+				"chainLength": *panelChain,
+				"parallel": *panelParallel,
+				"hardwareMapping": *panelHwMapping,
+				"showRefreshRate": *debug,
+				"pwmLSBNano": *panelPwmLSBNano,
 			})
 			if err != nil {
 				panic(err)

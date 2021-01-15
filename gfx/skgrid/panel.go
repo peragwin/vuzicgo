@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/mcuadros/go-rpi-rgb-led-matrix"
+	"github.com/peragwin/go-rpi-rgb-led-matrix"
 )
 
 type panel struct {
@@ -17,37 +17,62 @@ type panel struct {
 
 // newPanel returns a new led panel driver
 func newPanel(w, h int, opts map[string]interface{}) (Grid, error) {
-	p := &panel{
-		w: w, h: h,
-		close: make(chan struct{}),
-	}
 	var panelType string
 	panelTypeI, ok := opts["paneltype"]
 	if ok {
 		panelType = panelTypeI.(string)
 	}
+	chain := 1
+	chainI, ok := opts["chainLength"]
+	if ok {
+		chain = chainI.(int)
+	}
+	parallel := 1
+	parI, ok := opts["parallel"]
+	if ok {
+		parallel = parI.(int)
+	}
+	hwMapping := "regular"
+	hwI, ok := opts["hardwareMapping"]
+	if ok {
+		hwMapping = hwI.(string)
+	}
+	showRefreshRate := false
+	srI, ok := opts["showRefreshRate"]
+	if ok {
+		showRefreshRate = srI.(bool)
+	}
+	pwmLSBNano := 130
+	pwmLI, ok := opts["pwmLSBNano"]
+	if ok {
+		pwmLSBNano = pwmLI.(int)
+	}
 
 	cfg := &rgbmatrix.HardwareConfig{
 		Rows:              h,
 		Cols:              w,
-		ChainLength:       1,
-		Parallel:          1,
+		ChainLength:       chain,
+		Parallel:          parallel,
 		PWMBits:           11,
 		Brightness:        100,
-		PWMLSBNanoseconds: 50,
+		PWMLSBNanoseconds: pwmLSBNano,
 		ScanMode:          rgbmatrix.Progressive,
-		// ShowRefreshRate:   true,
+		ShowRefreshRate:   showRefreshRate,
 		PanelType:	   panelType,
+		HardwareMapping:   hwMapping,
 	}
 
 	m, err := rgbmatrix.NewRGBLedMatrix(cfg)
 	if err != nil {
 		return nil, err
 	}
-	p.m = m
-
-	c := rgbmatrix.NewCanvas(m)
-	p.c = c
+	p := &panel{
+		w: w * chain,
+		h: h * parallel,
+		close: make(chan struct{}),
+		m: m,
+		c: rgbmatrix.NewCanvas(m),
+	}
 
 	return p, nil
 }
