@@ -115,9 +115,9 @@ func (d *FrequencySensor) LoadConfig(conf string, render *Parameters) error {
 	if err := json.NewDecoder(fp).Decode(&save); err != nil {
 		return err
 	}
-	d.params = save.Params
+	*d.params = *save.Params
 	d.filterParams = toFilterValues(&save.Filters)
-	*render = *save.Render
+	// *render = *save.Render
 	return nil
 }
 

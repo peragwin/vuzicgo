@@ -315,6 +315,7 @@ func main() {
 		if err := f.LoadConfig(*configFile, rndr.params); err != nil {
 			log.Println("[Error] Failed to load config file:", err)
 		}
+		fs.DefaultParameters.Debug = *debug
 	}
 
 	// if !*headless {
