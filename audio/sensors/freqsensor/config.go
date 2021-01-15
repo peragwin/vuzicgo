@@ -1,12 +1,15 @@
 package freqsensor
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"reflect"
 	"strings"
 
+	"gonum.org/v1/gonum/blas/blas64"
 	"gonum.org/v1/gonum/mat"
 
 	"github.com/graphql-go/graphql"
@@ -56,6 +59,66 @@ type Config struct {
 	Columns    int
 	SampleRate float64
 	Parameters *Parameters
+}
+
+type saveConfig struct {
+	Params  *Parameters      `json:"params"`
+	Filters saveFilterValues `json:"filters"`
+	Render  *Parameters      `json:"render"`
+}
+
+type saveFilterValues struct {
+	Gain blas64.General `json:"gain"`
+	Diff blas64.General `json:"diff"`
+}
+
+func fromFilterValues(fv *filterValues) saveFilterValues {
+	return saveFilterValues{
+		Gain: fv.gain.RawMatrix(),
+		Diff: fv.diff.RawMatrix(),
+	}
+}
+
+func toFilterValues(sv *saveFilterValues) filterValues {
+	return filterValues{
+		gain: mat.NewDense(sv.Gain.Rows, sv.Gain.Cols, sv.Gain.Data),
+		diff: mat.NewDense(sv.Diff.Rows, sv.Diff.Cols, sv.Diff.Data),
+	}
+}
+
+// SaveConfig to the given file
+func (d *FrequencySensor) SaveConfig(conf string, render *Parameters) error {
+	save := saveConfig{
+		Params:  d.params,
+		Filters: fromFilterValues(&d.filterParams),
+		Render:  render,
+	}
+	fp, err := os.Create(conf)
+	if err != nil {
+		return err
+	}
+	defer fp.Close()
+	return json.NewEncoder(fp).Encode(&save)
+}
+
+// LoadConfig from the given file
+func (d *FrequencySensor) LoadConfig(conf string, render *Parameters) error {
+	fp, err := os.Open(conf)
+	if err != nil {
+		if err == os.ErrNotExist {
+			return nil
+		} else {
+			return err
+		}
+	}
+	var save saveConfig
+	if err := json.NewDecoder(fp).Decode(&save); err != nil {
+		return err
+	}
+	d.params = save.Params
+	d.filterParams = toFilterValues(&save.Filters)
+	*render = *save.Render
+	return nil
 }
 
 func (d *FrequencySensor) initGraphql() error {

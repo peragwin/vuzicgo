@@ -322,7 +322,7 @@ func (d *FrequencySensor) applyChannelEffects() {
 
 	if d.params.Mode == AnimateMode && d.frameCount%d.params.ColumnDivider == 0 {
 		decay := 1 - (2.0 / float64(d.Frames))
-		for i := len(d.Amplitude)-2; i >= 0; i-- { // -2
+		for i := len(d.Amplitude) - 2; i >= 0; i-- { // -2
 			for j := range d.Amplitude[i] {
 				d.Amplitude[i+1][j] = decay * d.Amplitude[i][j]
 			}
