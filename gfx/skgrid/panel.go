@@ -4,12 +4,11 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/peragwin/go-rpi-rgb-led-matrix"
+	rgbmatrix "github.com/peragwin/go-rpi-rgb-led-matrix"
 )
 
 type panel struct {
-	m     rgbmatrix.Matrix
-	c     *rgbmatrix.Canvas
+	m     *rgbmatrix.RGBLedMatrix
 	w     int
 	h     int
 	close chan struct{}
@@ -58,7 +57,7 @@ func newPanel(w, h int, opts map[string]interface{}) (Grid, error) {
 		PWMLSBNanoseconds: pwmLSBNano,
 		ScanMode:          rgbmatrix.Progressive,
 		ShowRefreshRate:   showRefreshRate,
-		PanelType:	   panelType,
+		PanelType:         panelType,
 		HardwareMapping:   hwMapping,
 	}
 
@@ -67,11 +66,10 @@ func newPanel(w, h int, opts map[string]interface{}) (Grid, error) {
 		return nil, err
 	}
 	p := &panel{
-		w: w * chain,
-		h: h * parallel,
+		w:     w * chain,
+		h:     h * parallel,
 		close: make(chan struct{}),
-		m: m,
-		c: rgbmatrix.NewCanvas(m),
+		m:     m.(*rgbmatrix.RGBLedMatrix),
 	}
 
 	return p, nil
@@ -82,21 +80,22 @@ func (p *panel) Rect() image.Rectangle {
 }
 
 func (p *panel) Pixel(x, y int, col color.RGBA) {
-	p.c.Set(x, y, col)
+	p.m.SetCanvasPixel(x, y, col)
 }
 
 func (p *panel) Show() error {
-	return p.m.Render()
+	p.m.Swap()
+	return nil
 }
 
 func (p *panel) Close() error {
-	return p.c.Close()
+	return p.m.Close()
 }
 
 func (p *panel) Fill(col color.RGBA) {
 	for x := 0; x < p.w; x++ {
 		for y := 0; y < p.h; y++ {
-			p.c.Set(x, y, col)
+			p.m.SetCanvasPixel(x, y, col)
 		}
 	}
 }
