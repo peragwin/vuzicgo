@@ -15,6 +15,7 @@ import (
 	"github.com/peragwin/vuzicgo/audio"
 	"github.com/peragwin/vuzicgo/audio/fft"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
+	"github.com/peragwin/vuzicgo/audio/util"
 	"github.com/peragwin/vuzicgo/gfx/skgrid"
 )
 
@@ -34,7 +35,7 @@ var (
 	mirror  = flag.Bool("mirror", false, "display mirrored rows")
 
 	headless = flag.Bool("headless", false, "run without initializing OpenGL display")
-	mode     = flag.Int("mode", fs.NormalMode, "which mode: 0=Normal, 1=Animate")
+	mode     = flag.Int("mode", fs.AnimateMode, "which mode: 0=Normal, 1=Animate")
 	remote   = flag.String("remote", "", "ip:port of remote grid")
 	flRemote = flag.String("fl-remote", "", "ip:port of flaschen grid")
 	pilocal  = flag.Bool("pilocal", false, "use raspberry pi's SPI output")
@@ -124,11 +125,12 @@ func main() {
 
 	source64 := audio.Buffer(done, source, fsize)
 
-	fftProc := fft.NewFFTProcessor(sampleRate, fsize)
-	fftOut := fftProc.Process(done, source64)
-
-	specProc := new(fft.PowerSpectrumProcessor)
-	specOut := specProc.Process(done, fftOut)
+	pregain := util.NewPreGain([4]float64{0.01, 0.99, 1.0, 1.0})
+	specProc := fft.NewPowerSpectrumProcessor(sampleRate, fsize)
+	specOut := audio.NewNodeF64F64(done, source64, func(fx []float64) []float64 {
+		pregain.Apply(fx)
+		return specProc.Apply(fx)
+	})
 
 	fs.DefaultParameters.Mode = *mode
 	fs.DefaultParameters.Period = 3 * *columns

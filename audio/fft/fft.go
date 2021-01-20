@@ -45,7 +45,9 @@ func (f *FFTProcessor) Process(done chan struct{}, in chan []float64) chan []com
 				return
 			}
 
-			window.Apply(fx, window.Hamming)
+			for i := range fx {
+				fx[i] = f.window[i] * fx[i]
+			}
 			out <- fft.FFTReal(fx)[:len(fx)/2]
 		}
 	}()
@@ -54,7 +56,30 @@ func (f *FFTProcessor) Process(done chan struct{}, in chan []float64) chan []com
 }
 
 // PowerSpectrumProcessor processes takes FFT frames as input and computes the log power spectrumm
-type PowerSpectrumProcessor struct{}
+type PowerSpectrumProcessor struct {
+	FFTProcessor
+}
+
+func NewPowerSpectrumProcessor(sampleRate float64, size int) *PowerSpectrumProcessor {
+	return &PowerSpectrumProcessor{
+		FFTProcessor: *NewFFTProcessor(sampleRate, size),
+	}
+}
+
+func (p *PowerSpectrumProcessor) Apply(fx []float64) []float64 {
+	for i := range fx {
+		fx[i] = p.window[i] * fx[i]
+	}
+	Fx := fft.FFTReal(fx)[:len(fx)/2]
+
+	Px := make([]float64, len(Fx))
+	N := float64(len(Px))
+	for i, f := range Fx {
+		Px[i] = math.Log(1+real(cmplx.Conj(f)*f)/N) / 2.0
+	}
+
+	return Px
+}
 
 // Process processes FFT input frames and outputs log power spectral frames
 func (p *PowerSpectrumProcessor) Process(done chan struct{}, in chan []complex128) chan []float64 {
