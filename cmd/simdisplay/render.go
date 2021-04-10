@@ -477,7 +477,8 @@ func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{})
 
 			wg.Wait()
 
-			renderLoopTime = time.Now().Sub(now)
+			rt := time.Now().Sub(now)
+			renderLoopTime = rt / 100 + 99 * renderLoopTime / 100
 
 			writeReady <- buffer
 		}
@@ -520,14 +521,17 @@ func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{})
 					for y := 0; y < displayHeight/2; y++ {
 						cf := buffer[x][y]
 						c := color.RGBA{uint8(255 * cf.R), uint8(255 * cf.G), uint8(255 * cf.B), uint8(255 * cf.A)}
+		//				for _, writePixel := range writePixels {
 						writePixel(xo, x, yo, y, c)
+		//				}
 					}
 				}
 			}()
 		}
 		wg.Wait()
 
-		writeLoopTime = time.Now().Sub(now)
+		wt := time.Now().Sub(now)
+		writeLoopTime = wt / 100 + 99 * writeLoopTime / 100
 
 		if err := g.Show(); err != nil {
 			log.Println("grid error!", err)

@@ -125,7 +125,7 @@ func main() {
 
 	source64 := audio.Buffer(done, source, fsize)
 
-	pregain := util.NewPreGain([4]float64{0.01, 0.99, 1.0, 1.0})
+	pregain := util.NewPreGain([4]float64{0.05, 0.95, 0.1, 0.25})
 	specProc := fft.NewPowerSpectrumProcessor(sampleRate, fsize)
 	specOut := audio.NewNodeF64F64(done, source64, func(fx []float64) []float64 {
 		pregain.Apply(fx)
