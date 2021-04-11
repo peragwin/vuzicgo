@@ -1,12 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"log"
-	"math"
 	"sync"
 	"time"
 
+	math "github.com/chewxy/math32"
 	hsluv "github.com/hsluv/hsluv-go"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
 	"github.com/peragwin/vuzicgo/gfx/skgrid"
@@ -186,15 +187,15 @@ func (r *renderer) renderColumn(col int) []ARGBf {
 	}
 
 	phase := r.src.Energy
-	ws := 2.0 * math.Pi / float64(r.params.Period)
-	phi := ws * float64(col)
+	ws := 2.0 * math.Pi / float32(r.params.Period)
+	phi := ws * float32(col)
 
 	colors := make([]ARGBf, r.rows)
 
 	for i, ph := range phase {
 		val := r.src.Scales[i] * (amp[i] - 1)
 		//colors[i] = getRGB(d.params, amp[i], ph, phi)
-		colors[i] = getHSV(r.params, val, ph, phi)
+		colors[i] = getHSV(r.params, val, ph, float64(phi))
 	}
 
 	return colors
@@ -222,9 +223,9 @@ func getHSV(params *fs.Parameters, amp, ph, phi float64) ARGBf {
 	alpha := params.Alpha
 	ao := params.AlphaOffset
 
-	hue := math.Mod((ph+phi)*180/math.Pi, 360)
+	hue := math.Mod(float32(ph+phi)*180/math.Pi, 360.0) - 0.000001
 	if hue < 0 {
-		hue += 360
+		hue += 360.0
 	}
 	// sat := fs.Sigmoid(br + so + amp)
 	val := ss*fs.Sigmoid(vo1*amp+vo2) + so
@@ -237,6 +238,13 @@ func getHSV(params *fs.Parameters, amp, ph, phi float64) ARGBf {
 	if vi < 0 {
 		vi = 0
 	}
+
+	defer func() {
+		p := recover()
+		if p != nil {
+			fmt.Printf("panicked: hue = %f: %v\n", hue, p)
+		}
+	}()
 
 	// r, g, b := colorful.Hsv(hue, sat, val).RGB255()
 	// rf, gf, bf := hsluv.HsluvToRGB(hue, sat*100, val*75)
@@ -254,6 +262,57 @@ type gridPoint struct {
 	y    float32
 	srcX int
 	srcY int
+}
+
+type warpIntegrator struct {
+	warpsize  int
+	scalesize int
+	warp      []float32
+	dwarp     []float32
+	scale     []float32
+	dscale    []float32
+}
+
+func newWarpIntegrator(warpsize, scalesize int) *warpIntegrator {
+	return &warpIntegrator{
+		warpsize:  warpsize,
+		scalesize: scalesize,
+		warp:      make([]float32, warpsize),
+		dwarp:     make([]float32, warpsize),
+		scale:     make([]float32, scalesize),
+		dscale:    make([]float32, scalesize),
+	}
+}
+
+func (w *warpIntegrator) computeWarp(frame *renderValues) {
+	for wi := 0; wi < w.warpsize; wi++ {
+		wa := float32(fs.DefaultParameters.WarpScale*0.001) * frame.warp[wi]
+		wa -= w.warp[wi] * float32(fs.DefaultParameters.WarpSpring)
+		f := math.Copysign(float32(fs.DefaultParameters.WarpFriction), -w.dwarp[wi])
+		w.dwarp[wi] += wa + f*w.dwarp[wi]
+		w.warp[wi] += w.dwarp[wi] / 2.0
+		if wi == 0 {
+			fmt.Printf("warp = %02.2f, dw = %02.2f, d2w = %02.2f, k=%.6f, u=%.6f\n",
+				w.warp[0], w.dwarp[0], wa, fs.DefaultParameters.WarpSpring, fs.DefaultParameters.WarpFriction)
+		}
+	}
+
+	for si := 0; si < w.scalesize; si++ {
+		sa := float32(fs.DefaultParameters.Scale*0.001) * frame.scale[si]
+		sa -= w.scale[si] * float32(fs.DefaultParameters.WarpSpring)
+		f := math.Copysign(float32(fs.DefaultParameters.WarpFriction), -w.dscale[si])
+		w.dscale[si] += sa + f
+		w.scale[si] += w.dscale[si] / 2.0
+		if si == 0 {
+			fmt.Printf("scale = %02.2f, ds = %02.2f, d2s = %02.2f\n",
+				w.scale[0], w.dscale[0], sa)
+		}
+	}
+}
+
+func (w *warpIntegrator) getWarp(wi, si int) (float32, float32) {
+	return float32(fs.DefaultParameters.WarpOffset) + w.warp[wi],
+		float32(fs.DefaultParameters.ScaleOffset) + w.scale[si]
 }
 
 func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{}) {
@@ -310,20 +369,22 @@ func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{})
 		return x, y
 	}
 
+	warper := newWarpIntegrator(rows, columns)
+
 	applyWarp := func(g gridPoint, w, s float32) gridPoint {
 		if g.x <= 0 {
-			g.x = float32(math.Pow(float64(g.x+1), float64(w)) - 1)
+			g.x = math.Pow(float32(g.x+1), float32(w)) - 1.0
 		} else {
-			g.x = float32(1 - math.Pow(float64(1-g.x), float64(w)))
+			g.x = 1.0 - math.Pow(float32(1-g.x), float32(w))
 		}
 		if g.y <= 0 {
 			s = (1 + g.y/2) * s
-			g.y = float32(math.Pow(float64(1+g.y), float64(s)) - 1)
+			g.y = math.Pow(float32(1+g.y), float32(s)) - 1.0
 		} else {
 			// ss := s
 			s = (1 - g.y/2) * s
 			// yy := g.y
-			g.y = float32(1 - math.Pow(float64(1-g.y), float64(s)))
+			g.y = 1.0 - math.Pow(float32(1-g.y), float32(s))
 			// if g.y < 0 {
 			// 	fmt.Println("wtf", yy, g.y, s, ss)
 			// }
@@ -413,6 +474,8 @@ func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{})
 
 			now := time.Now()
 
+			warper.computeWarp(frame)
+
 			var wg = new(sync.WaitGroup)
 
 			for i := 0; i < nThreads; i++ {
@@ -429,11 +492,8 @@ func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{})
 						si := columns - 1 - pbase.srcX
 
 						// fmt.Println("g warp scale", g, len(frame.warp), len(frame.scale))
-						warp := fs.DefaultParameters.WarpScale * float64(frame.warp[wi])
-						warp += fs.DefaultParameters.WarpOffset
-						scale := fs.DefaultParameters.Scale * float64(frame.scale[si])
-						scale += fs.DefaultParameters.ScaleOffset
-						p := applyWarp(pbase, float32(warp), float32(scale))
+						warp, scale := warper.getWarp(wi, si)
+						p := applyWarp(pbase, warp, scale)
 						x, y := getDisplayXY(p)
 						// fmt.Println("g, p, x, y", g, p, x, y)
 
@@ -477,8 +537,8 @@ func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{})
 
 			wg.Wait()
 
-			rt := time.Now().Sub(now)
-			renderLoopTime = rt / 100 + 99 * renderLoopTime / 100
+			rt := time.Since(now)
+			renderLoopTime = rt/100 + 99*renderLoopTime/100
 
 			writeReady <- buffer
 		}
@@ -521,17 +581,17 @@ func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{})
 					for y := 0; y < displayHeight/2; y++ {
 						cf := buffer[x][y]
 						c := color.RGBA{uint8(255 * cf.R), uint8(255 * cf.G), uint8(255 * cf.B), uint8(255 * cf.A)}
-		//				for _, writePixel := range writePixels {
+						//				for _, writePixel := range writePixels {
 						writePixel(xo, x, yo, y, c)
-		//				}
+						//				}
 					}
 				}
 			}()
 		}
 		wg.Wait()
 
-		wt := time.Now().Sub(now)
-		writeLoopTime = wt / 100 + 99 * writeLoopTime / 100
+		wt := time.Since(now)
+		writeLoopTime = wt/100 + 99*writeLoopTime/100
 
 		if err := g.Show(); err != nil {
 			log.Println("grid error!", err)
@@ -553,13 +613,13 @@ func (r *renderer) colorTest(g skgrid.Grid, frameRate int, done chan struct{}) {
 	delay := time.Second / time.Duration(frameRate)
 	ticker := time.NewTicker(delay)
 
-	phase := 0.0
+	phase := float32(0.0)
 
 	for {
 		<-ticker.C
 
 		phase += 1.0
-		phase = math.Mod(phase, 3*float64(displayWidth))
+		phase = math.Mod(phase, 3*float32(displayWidth))
 
 		for x := 0; x < displayWidth; x++ {
 			for y := 0; y < displayHeight; y++ {
@@ -567,7 +627,7 @@ func (r *renderer) colorTest(g skgrid.Grid, frameRate int, done chan struct{}) {
 				// h := math.Mod(phase+float64(x), 360)
 				// v := 60 * float64(y) / float64(displayHeight)
 				// r, gr, b := hsluv.HpluvToRGB(h, 100, v)
-				r := (float64(x)) / float64(displayWidth)
+				r := (float32(x)) / float32(displayWidth)
 				gr := 0
 				b := 0
 

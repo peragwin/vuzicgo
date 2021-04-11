@@ -42,8 +42,10 @@ type Parameters struct {
 	Sync             float64 `json:"sync"`
 	Mode             int     `json:"mode"`
 
-	WarpOffset float64 `json:"warpOffset"`
-	WarpScale  float64 `json:"warpScale"`
+	WarpOffset   float64 `json:"warpOffset"`
+	WarpScale    float64 `json:"warpScale"`
+	WarpSpring   float64 `json:"warpSpring"`
+	WarpFriction float64 `json:"warpFriction"`
 
 	Scale       float64 `json:"scale"`
 	ScaleOffset float64 `json:"scaleOffset"`

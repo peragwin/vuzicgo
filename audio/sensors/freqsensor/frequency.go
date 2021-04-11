@@ -37,6 +37,8 @@ var (
 		Mode:             AnimateMode,
 		WarpOffset:       0.68,
 		WarpScale:        1.33,
+		WarpSpring:       0.01,
+		WarpFriction:     0.001,
 		Scale:            1.5,
 		SaturationOffset: 0.0,
 		SaturationScale:  0.7,
