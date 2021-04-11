@@ -269,8 +269,10 @@ type warpIntegrator struct {
 	scalesize int
 	warp      []float32
 	dwarp     []float32
+	iwarp     []float32
 	scale     []float32
 	dscale    []float32
+	iscale    []float32
 }
 
 func newWarpIntegrator(warpsize, scalesize int) *warpIntegrator {
@@ -279,34 +281,46 @@ func newWarpIntegrator(warpsize, scalesize int) *warpIntegrator {
 		scalesize: scalesize,
 		warp:      make([]float32, warpsize),
 		dwarp:     make([]float32, warpsize),
+		iwarp:     make([]float32, warpsize),
 		scale:     make([]float32, scalesize),
 		dscale:    make([]float32, scalesize),
+		iscale:    make([]float32, scalesize),
 	}
 }
 
 func (w *warpIntegrator) computeWarp(frame *renderValues) {
 	for wi := 0; wi < w.warpsize; wi++ {
-		wa := float32(fs.DefaultParameters.WarpScale*0.001) * frame.warp[wi]
-		wa -= w.warp[wi] * float32(fs.DefaultParameters.WarpSpring)
-		f := math.Copysign(float32(fs.DefaultParameters.WarpFriction), -w.dwarp[wi])
-		w.dwarp[wi] += wa + f*w.dwarp[wi]
-		w.warp[wi] += w.dwarp[wi] / 2.0
-		if wi == 0 {
-			fmt.Printf("warp = %02.2f, dw = %02.2f, d2w = %02.2f, k=%.6f, u=%.6f\n",
-				w.warp[0], w.dwarp[0], wa, fs.DefaultParameters.WarpSpring, fs.DefaultParameters.WarpFriction)
-		}
+		e := frame.warp[wi] - w.warp[wi]
+		k := float32(fs.DefaultParameters.WarpScale*0.1) * e
+		dk := float32(fs.DefaultParameters.WarpD) * w.dwarp[wi]
+		ik := w.iwarp[wi] + e*float32(fs.DefaultParameters.WarpI)
+
+		wp := w.warp[wi]
+		w.warp[wi] = k + dk + ik
+		w.dwarp[wi] = w.warp[wi] - wp
+		w.iwarp[wi] = ik
+
+		// if wi == 0 {
+		// 	fmt.Printf("warp = %02.2f, dw = %02.2f, iw = %02.2f, kd=%.6f, ki=%.6f\n",
+		// 		w.warp[0], w.dwarp[0], w.iwarp[0], fs.DefaultParameters.WarpD, fs.DefaultParameters.WarpI)
+		// }
 	}
 
 	for si := 0; si < w.scalesize; si++ {
-		sa := float32(fs.DefaultParameters.Scale*0.001) * frame.scale[si]
-		sa -= w.scale[si] * float32(fs.DefaultParameters.WarpSpring)
-		f := math.Copysign(float32(fs.DefaultParameters.WarpFriction), -w.dscale[si])
-		w.dscale[si] += sa + f
-		w.scale[si] += w.dscale[si] / 2.0
-		if si == 0 {
-			fmt.Printf("scale = %02.2f, ds = %02.2f, d2s = %02.2f\n",
-				w.scale[0], w.dscale[0], sa)
-		}
+		e := frame.scale[si] - w.scale[si]
+		k := float32(fs.DefaultParameters.Scale*0.1) * e
+		dk := float32(fs.DefaultParameters.WarpD) * w.dscale[si]
+		ik := w.iscale[si] + e*float32(fs.DefaultParameters.WarpI)
+
+		sp := w.scale[si]
+		w.scale[si] = k + dk + ik
+		w.dscale[si] = w.scale[si] - sp
+		w.iscale[si] = ik
+
+		// if si == 0 {
+		// 	fmt.Printf("scale = %02.2f, ds = %02.2f, is = %02.2f\n",
+		// 		w.scale[0], w.dscale[0], w.iscale[0])
+		// }
 	}
 }
 
