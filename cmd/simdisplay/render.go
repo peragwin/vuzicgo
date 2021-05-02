@@ -111,15 +111,16 @@ func (r *renderer) render() {
 	// 	r.lastRender = time.Now()
 	// }
 	hl := r.columns
+	hlf := float32(hl)
 	for i := 0; i < hl; i++ {
 		col := r.renderColumn(i)
 		for j, c := range col {
-			v := float64(i) / float64(hl)
+			v := float32(i) / hlf
 			v = 1 - v*v
-			c.A *= float32(v)
-			c.R *= float32(v)
-			c.G *= float32(v)
-			c.B *= float32(v)
+			c.A *= v
+			c.R *= v
+			c.G *= v
+			c.B *= v
 			// if r.mirror {
 			// 	r.display.SetRGBA(hl+i, r.rows+j, c)
 			// 	r.display.SetRGBA(hl+i, r.rows-1-j, c)
@@ -164,15 +165,15 @@ func (r *renderer) render() {
 
 	sc := len(r.src.Amplitude) / r.columns
 	for i := 0; i < r.columns; i++ {
-		var s float64
+		var s float32
 		for j := 0; j < sc; j++ {
 			for k, v := range r.src.Amplitude[sc*i+j] {
 				// todo: sum with linear scaling to target bass?
-				s += r.src.Scales[k] * (v - 1)
+				s += float32(r.src.Scales[k]) * (float32(v) - 1.0)
 			}
 		}
-		s /= float64(sc)
-		s /= float64(len(r.src.Amplitude[sc*i]))
+		s /= float32(sc)
+		s /= float32(len(r.src.Amplitude[sc*i]))
 		// v := float64(i) / float64(r.columns)
 		// s *= (1 - v*v)
 		r.scale[i] = float32(s)
@@ -193,9 +194,9 @@ func (r *renderer) renderColumn(col int) []ARGBf {
 	colors := make([]ARGBf, r.rows)
 
 	for i, ph := range phase {
-		val := r.src.Scales[i] * (amp[i] - 1)
+		val := float32(r.src.Scales[i]) * (float32(amp[i]) - 1.0)
 		//colors[i] = getRGB(d.params, amp[i], ph, phi)
-		colors[i] = getHSV(r.params, val, ph, float64(phi))
+		colors[i] = getHSV(r.params, val, float32(ph), phi)
 	}
 
 	return colors
@@ -213,7 +214,7 @@ const numHues = 360
 
 var clut [numHues][numValues]ARGBf
 
-func getHSV(params *fs.Parameters, amp, ph, phi float64) ARGBf {
+func getHSV(params *fs.Parameters, amp, ph, phi float32) ARGBf {
 	// br := params.Brightness
 	// gbr := params.GlobalBrightness
 	ss := params.SaturationScale
@@ -223,9 +224,9 @@ func getHSV(params *fs.Parameters, amp, ph, phi float64) ARGBf {
 	alpha := params.Alpha
 	ao := params.AlphaOffset
 
-	hue := math.Mod(float32(ph+phi)*180/math.Pi, 360.0) - 0.000001
+	hue := math.Mod(float32(ph+phi)*180/math.Pi, 360.0) - 0.1
 	if hue < 0 {
-		hue += 360.0
+		hue += 359.9
 	}
 	// sat := fs.Sigmoid(br + so + amp)
 	val := ss*fs.Sigmoid(vo1*amp+vo2) + so
@@ -479,6 +480,12 @@ func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{})
 	}()
 
 	go func() {
+		// var kernel = [3][3]float32{
+		// 	{0.04, 0.2, 0.04},
+		// 	{0.2, 1.08, 0.2}, //was .504
+		// 	{0.04, 0.2, 0.04},
+		// }
+
 		for fv := range frameReady {
 			if fv.frame == nil {
 				break
@@ -541,6 +548,19 @@ func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{})
 						}
 
 						buffer[x][y] = ARGBf{a, r, g, b}
+						// for m, row := range kernel {
+						// 	xx := x + m - 1
+						// 	if xx < 0 || xx >= len(buffer) {
+						// 		continue
+						// 	}
+						// 	for n, k := range row {
+						// 		yy := y + n - 1
+						// 		if yy < 0 || yy >= len(buffer[0]) {
+						// 			continue
+						// 		}
+						// 		buffer[xx][yy] = ARGBf{k * a, k * r, k * g, k * b}
+						// 	}
+						// }
 
 						// buffer.SetRGBA(x, y, c1)
 						//buffer.SetRGBA(x, y, color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)})

@@ -25,12 +25,12 @@ const (
 type Parameters struct {
 	GlobalBrightness float64 `json:"gbr"`
 	Brightness       float64 `json:"br"`
-	SaturationOffset float64 `json:"satOffset"`
-	SaturationScale  float64 `json:"satScale"`
-	ValueOffset1     float64 `json:"valueOffset1"`
-	ValueOffset2     float64 `json:"valueOffset2"`
-	Alpha            float64 `json:"alpha"`
-	AlphaOffset      float64 `json:"alphaOffset"`
+	SaturationOffset float32 `json:"satOffset"`
+	SaturationScale  float32 `json:"satScale"`
+	ValueOffset1     float32 `json:"valueOffset1"`
+	ValueOffset2     float32 `json:"valueOffset2"`
+	Alpha            float32 `json:"alpha"`
+	AlphaOffset      float32 `json:"alphaOffset"`
 	AlphaLimit       int     `json:"alphaLimit"`
 
 	Direction        int

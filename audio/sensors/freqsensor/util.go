@@ -1,8 +1,9 @@
 package freqsensor
 
 import (
-	"math"
+	gomath "math"
 
+	math "github.com/chewxy/math32"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -81,19 +82,19 @@ func (v *variableGainController) apply(input []float64) {
 	}
 }
 
-var sigmoidTable = make([]float64, 2000)
-var sigmoidRange = 10.0
-var sigmoidScale = float64(len(sigmoidTable)) / (2 * sigmoidRange)
+var sigmoidTable = make([]float32, 2000)
+var sigmoidRange = float32(10.0)
+var sigmoidScale = float32(len(sigmoidTable)) / (2 * sigmoidRange)
 
 func init() {
 	hl := len(sigmoidTable) / 2
 	for i := range sigmoidTable {
-		v := float64(i-hl) / sigmoidScale
+		v := float32(i-hl) / sigmoidScale
 		sigmoidTable[i] = 1 / (1 + math.Exp(-v))
 	}
 }
 
-func Sigmoid(x float64) float64 {
+func Sigmoid(x float32) float32 {
 	if x >= sigmoidRange {
 		return sigmoidTable[len(sigmoidTable)-1]
 	} else if x <= -sigmoidRange {
@@ -114,7 +115,7 @@ func Sigmoid(x float64) float64 {
 	// return r
 }
 
-func sigmoidCurve(x float64) float64 {
+func sigmoidCurve(x float32) float32 {
 	return 2*Sigmoid(x) - 1
 }
 
@@ -134,10 +135,10 @@ func logCurve(x float64) float64 {
 	if x > 0 {
 		sign = -1.0
 	}
-	return sign * (math.Log2(math.Abs(x)))
+	return sign * (gomath.Log2(gomath.Abs(x)))
 }
 
-func errCurve(x float64) float64 {
+func errCurve(x float32) float32 {
 	if x > 0 {
 		return -1 * x * x
 	} else {
