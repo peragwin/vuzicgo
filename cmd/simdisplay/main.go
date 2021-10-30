@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"runtime"
-	"time"
 
 	// "github.com/go-gl/gl/v4.1-core/gl"
 
@@ -16,7 +15,7 @@ import (
 	"github.com/peragwin/vuzicgo/audio/fft"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
 	"github.com/peragwin/vuzicgo/audio/util"
-	"github.com/peragwin/vuzicgo/gfx/skgrid"
+	// "github.com/peragwin/vuzicgo/gfx/skgrid"
 )
 
 const (
@@ -61,6 +60,8 @@ var (
 
 	debug      = flag.Bool("debug", false, "enabled debug output")
 	configFile = flag.String("config-file", "", "path to config file to persist state")
+
+	mqttBroker = flag.String("mqtt-broker", "", "hostname/port of mqtt broker")
 )
 
 // func initGfx(done chan struct{}) *warpgrid.Grid {
@@ -187,44 +188,44 @@ func main() {
 
 	// If a remote is passed try to stream to it. If we lose the connection, try again
 	// after 10 seconds to reestablish a connection.
-	if *remote != "" {
-		go func() {
-			delay := time.NewTicker(10 * time.Second)
-			for {
-				if skRem, err := skgrid.NewRemote(*remote); err != nil {
-					log.Println("[ERROR] could not connect to remote skgrid controller. " +
-						"Retrying in 10 seconds...")
-					<-delay.C
-				} else {
-					grid, err := skgrid.NewGrid(16, 60, "skgrid", map[string]interface{}{
-						"transpose": true,
-						"driver":    skRem,
-					})
-					if err != nil {
-						panic(err)
-					}
-					done := make(chan struct{})
-					go rndr.gridRender3(grid, *frameRate, done)
-					<-done
-				}
-			}
-		}()
-	}
+	// if *remote != "" {
+	// 	go func() {
+	// 		delay := time.NewTicker(10 * time.Second)
+	// 		for {
+	// 			if skRem, err := skgrid.NewRemote(*remote); err != nil {
+	// 				log.Println("[ERROR] could not connect to remote skgrid controller. " +
+	// 					"Retrying in 10 seconds...")
+	// 				<-delay.C
+	// 			} else {
+	// 				grid, err := skgrid.NewGrid(16, 60, "skgrid", map[string]interface{}{
+	// 					"transpose": true,
+	// 					"driver":    skRem,
+	// 				})
+	// 				if err != nil {
+	// 					panic(err)
+	// 				}
+	// 				done := make(chan struct{})
+	// 				go rndr.gridRender3(grid, *frameRate, done)
+	// 				<-done
+	// 			}
+	// 		}
+	// 	}()
+	// }
 
-	if *flRemote != "" {
-		go func() {
-			grid, err := skgrid.NewGrid(44, 34, "flaschen", map[string]interface{}{
-				"layer":  16,
-				"remote": *flRemote,
-			})
-			if err != nil {
-				panic(err)
-			}
-			done := make(chan struct{})
-			go rndr.gridRender3(grid, *frameRate, done)
-			<-done
-		}()
-	}
+	// if *flRemote != "" {
+	// 	go func() {
+	// 		grid, err := skgrid.NewGrid(44, 34, "flaschen", map[string]interface{}{
+	// 			"layer":  16,
+	// 			"remote": *flRemote,
+	// 		})
+	// 		if err != nil {
+	// 			panic(err)
+	// 		}
+	// 		done := make(chan struct{})
+	// 		go rndr.gridRender3(grid, *frameRate, done)
+	// 		<-done
+	// 	}()
+	// }
 
 	// if *pilocal {
 	// 	go func() {
@@ -245,25 +246,36 @@ func main() {
 	// 	}()
 	// }
 
-	if *pipanel {
-		go func() {
-			grid, err := skgrid.NewGrid(*panelWidth, *panelHeight, "panel", map[string]interface{}{
-				"paneltype":       "FM6126A",
-				"chainLength":     *panelChain,
-				"parallel":        *panelParallel,
-				"hardwareMapping": *panelHwMapping,
-				"showRefreshRate": *debug,
-				"pwmLSBNano":      *panelPwmLSBNano,
-			})
-			if err != nil {
-				panic(err)
-			}
-			done := make(chan struct{})
-			go rndr.gridRender3(grid, *frameRate, done)
-			// go rndr.colorTest(grid, *frameRate, done)
-			<-done
-		}()
+	// if *pipanel {
+	// 	go func() {
+	// 		grid, err := skgrid.NewGrid(*panelWidth, *panelHeight, "panel", map[string]interface{}{
+	// 			"paneltype":       "FM6126A",
+	// 			"chainLength":     *panelChain,
+	// 			"parallel":        *panelParallel,
+	// 			"hardwareMapping": *panelHwMapping,
+	// 			"showRefreshRate": *debug,
+	// 			"pwmLSBNano":      *panelPwmLSBNano,
+	// 		})
+	// 		if err != nil {
+	// 			panic(err)
+	// 		}
+	// 		done := make(chan struct{})
+	// 		go rndr.gridRender3(grid, *frameRate, done)
+	// 		// go rndr.colorTest(grid, *frameRate, done)
+	// 		<-done
+	// 	}()
+	// }
+
+	nocturne, err := NewNocturne(*mqttBroker, fs.DefaultParameters, f)
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	go func() {
+		done := make(chan struct{})
+		go nocturne.StartRenderer(100, done)
+		<-done
+	}()
 
 	go func() {
 		http.HandleFunc("/api/v1/graphql", func(w http.ResponseWriter, r *http.Request) {

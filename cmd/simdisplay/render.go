@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"log"
 	"sync"
@@ -10,7 +11,7 @@ import (
 	math "github.com/chewxy/math32"
 	hsluv "github.com/hsluv/hsluv-go"
 	fs "github.com/peragwin/vuzicgo/audio/sensors/freqsensor"
-	"github.com/peragwin/vuzicgo/gfx/skgrid"
+	// "github.com/peragwin/vuzicgo/gfx/skgrid"
 )
 
 type renderer struct {
@@ -330,11 +331,11 @@ func (w *warpIntegrator) getWarp(wi, si int) (float32, float32) {
 		float32(fs.DefaultParameters.ScaleOffset) + w.scale[si]
 }
 
-func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{}) {
-	defer g.Close()
+func (r *renderer) gridRender3(img image.RGBA, frameRate int, done chan struct{}) {
+	// defer g.Close()
 	defer close(done)
 
-	rect := g.Rect()
+	rect := img.Rect
 	displayWidth := rect.Dx()
 	displayHeight := rect.Dy()
 
@@ -592,10 +593,10 @@ func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{})
 	yo := displayHeight / 2
 
 	writePixels := []func(xo, xt, yo, yt int, c color.RGBA){
-		func(xo, xt, yo, yt int, c color.RGBA) { g.Pixel(xo+xt, yo+yt, c) },
-		func(xo, xt, yo, yt int, c color.RGBA) { g.Pixel(xo-xt-1, yo+yt, c) },
-		func(xo, xt, yo, yt int, c color.RGBA) { g.Pixel(xo+xt, yo-yt-1, c) },
-		func(xo, xt, yo, yt int, c color.RGBA) { g.Pixel(xo-xt-1, yo-yt-1, c) },
+		func(xo, xt, yo, yt int, c color.RGBA) { img.SetRGBA(xo+xt, yo+yt, c) },
+		func(xo, xt, yo, yt int, c color.RGBA) { img.SetRGBA(xo-xt-1, yo+yt, c) },
+		func(xo, xt, yo, yt int, c color.RGBA) { img.SetRGBA(xo+xt, yo-yt-1, c) },
+		func(xo, xt, yo, yt int, c color.RGBA) { img.SetRGBA(xo-xt-1, yo-yt-1, c) },
 	}
 
 	// go func() {
@@ -627,52 +628,52 @@ func (r *renderer) gridRender3(g skgrid.Grid, frameRate int, done chan struct{})
 		wt := time.Since(now)
 		writeLoopTime = wt/100 + 99*writeLoopTime/100
 
-		if err := g.Show(); err != nil {
-			log.Println("grid error!", err)
-			break
-		}
+		// if err := g.Show(); err != nil {
+		// 	log.Println("grid error!", err)
+		// 	break
+		// }
 	}
 	// }()
 
 }
 
-func (r *renderer) colorTest(g skgrid.Grid, frameRate int, done chan struct{}) {
-	defer g.Close()
-	defer close(done)
+// func (r *renderer) colorTest(g skgrid.Grid, frameRate int, done chan struct{}) {
+// 	defer g.Close()
+// 	defer close(done)
 
-	rect := g.Rect()
-	displayWidth := rect.Dx()
-	displayHeight := rect.Dy()
+// 	rect := g.Rect()
+// 	displayWidth := rect.Dx()
+// 	displayHeight := rect.Dy()
 
-	delay := time.Second / time.Duration(frameRate)
-	ticker := time.NewTicker(delay)
+// 	delay := time.Second / time.Duration(frameRate)
+// 	ticker := time.NewTicker(delay)
 
-	phase := float32(0.0)
+// 	phase := float32(0.0)
 
-	for {
-		<-ticker.C
+// 	for {
+// 		<-ticker.C
 
-		phase += 1.0
-		phase = math.Mod(phase, 3*float32(displayWidth))
+// 		phase += 1.0
+// 		phase = math.Mod(phase, 3*float32(displayWidth))
 
-		for x := 0; x < displayWidth; x++ {
-			for y := 0; y < displayHeight; y++ {
+// 		for x := 0; x < displayWidth; x++ {
+// 			for y := 0; y < displayHeight; y++ {
 
-				// h := math.Mod(phase+float64(x), 360)
-				// v := 60 * float64(y) / float64(displayHeight)
-				// r, gr, b := hsluv.HpluvToRGB(h, 100, v)
-				r := (float32(x)) / float32(displayWidth)
-				gr := 0
-				b := 0
+// 				// h := math.Mod(phase+float64(x), 360)
+// 				// v := 60 * float64(y) / float64(displayHeight)
+// 				// r, gr, b := hsluv.HpluvToRGB(h, 100, v)
+// 				r := (float32(x)) / float32(displayWidth)
+// 				gr := 0
+// 				b := 0
 
-				c := color.RGBA{uint8(255 * r), uint8(255 * gr), uint8(255 * b), 0}
+// 				c := color.RGBA{uint8(255 * r), uint8(255 * gr), uint8(255 * b), 0}
 
-				g.Pixel(x, y, c)
-			}
-		}
-		if err := g.Show(); err != nil {
-			log.Println("grid error!", err)
-			break
-		}
-	}
-}
+// 				g.Pixel(x, y, c)
+// 			}
+// 		}
+// 		if err := g.Show(); err != nil {
+// 			log.Println("grid error!", err)
+// 			break
+// 		}
+// 	}
+// }
