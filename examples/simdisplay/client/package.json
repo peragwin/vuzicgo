@@ -10,7 +10,7 @@
     "react-apollo": "^2.0.4",
     "react-dom": "^16.2.0",
     "react-rangeslider": "^2.2.0",
-    "react-scripts": "1.1.1"
+    "react-scripts": "5.0.1"
   },
   "scripts": {
     "start": "react-scripts start",
